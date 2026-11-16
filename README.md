@@ -1,6 +1,6 @@
 # Observer Notes
 
-To-do list kawaii em Java (Swing), inspirada em jogos Flash dos anos 2000. Projeto acadêmico: padrão Observer, SOLID e persistência local.
+To-do list em Java (Swing), inspirada em jogos Flash dos anos 2000. Projeto pessoal: padrão Observer, SOLID e persistência local.
 
 ## Importar no Eclipse
 1. `File → Import → Maven → Existing Maven Projects` e escolha esta pasta.
