@@ -82,12 +82,13 @@ class TaskPaginationTest {
     }
 
     @Test
-    void arrowsStayCenteredInTheFreeGapAndRespectPageLimits() {
-        assertEquals(false, Layout.MAIN_RIBBON.intersects(Layout.TASK_PAGE_PREVIOUS));
-        assertEquals(false, Layout.MAIN_BADGE.intersects(Layout.TASK_PAGE_NEXT));
-        double gapCenter = (Layout.MAIN_RIBBON.getMaxX() + Layout.MAIN_BADGE.getX()) / 2;
-        double controlsCenter = (Layout.TASK_PAGE_PREVIOUS.getX() + Layout.TASK_PAGE_NEXT.getMaxX()) / 2;
-        assertEquals(gapCenter, controlsCenter, 1.0);
+    void arrowsFlankTheBadgeAndRespectPageLimits() {
+        var previous = Layout.TASK_PAGE_PREVIOUS;
+        var next = Layout.TASK_PAGE_NEXT;
+        assertTrue(previous.getCenterX() < Layout.MAIN_BADGE.getMinX());
+        assertTrue(next.getCenterX() > Layout.MAIN_BADGE.getMaxX());
+        assertEquals(Layout.MAIN_BADGE.getCenterY(), previous.getCenterY(), 0.01);
+        assertEquals(previous.getCenterY(), next.getCenterY(), 0.01);
 
         add(7);
         assertEquals(ButtonId.TASK_PAGE_PREVIOUS,

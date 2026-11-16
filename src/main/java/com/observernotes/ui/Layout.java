@@ -39,10 +39,10 @@ public final class Layout {
     public static final Rectangle2D MAIN_RIBBON_WIDE = mock(380, 155, 650, 217);
     /** Botão CLEAR do histórico: fica por inteiro dentro do painel, sem tocar a borda nem a primeira linha. */
     public static final Rectangle2D CLEAR = mock(815, 180, 945, 229);
-    public static final Rectangle2D MAIN_BADGE = mock(852, 152, 950, 216);
-    /** Paginação centralizada no vão de ~202 px entre a faixa Tarefas e a nuvem. */
-    public static final Rectangle2D TASK_PAGE_PREVIOUS = mock(688, 177, 725, 214);
-    public static final Rectangle2D TASK_PAGE_NEXT = mock(744, 177, 781, 214);
+    public static final Rectangle2D MAIN_BADGE = mock(813, 140, 911, 216);
+    /** Áreas clicáveis simétricas, alinhadas ao centro da nuvem. */
+    public static final Rectangle2D TASK_PAGE_PREVIOUS = mock(775, 160, 809, 196);
+    public static final Rectangle2D TASK_PAGE_NEXT = mock(915, 160, 949, 196);
     public static final double ROW_X0 = mock(381, 0, 938, 0).getX();
     public static final double ROW_W = mock(381, 0, 938, 0).getWidth();
     /** Topo (y, grade) de cada uma das 6 linhas e altura de cada uma. */

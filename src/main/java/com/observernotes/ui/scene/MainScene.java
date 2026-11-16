@@ -25,7 +25,10 @@ import com.observernotes.ui.widget.UiAction;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.AlphaComposite;
+import java.awt.GradientPaint;
 import java.awt.Graphics2D;
+import java.awt.geom.Arc2D;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
@@ -476,11 +479,6 @@ public final class MainScene {
             g.setStroke(new BasicStroke(7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g.draw(new RoundRectangle2D.Double(r.getX() - 1, r.getY() - 1, r.getWidth() + 2, r.getHeight() + 2,
                     r.getHeight(), r.getHeight()));
-        } else if (input.focused()) {
-            g.setColor(new Color(255, 143, 184, 110));
-            g.setStroke(new BasicStroke(7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.draw(new RoundRectangle2D.Double(r.getX() - 1, r.getY() - 1, r.getWidth() + 2, r.getHeight() + 2,
-                    r.getHeight(), r.getHeight()));
         }
         s.sliced(Asset.TEXT_FIELD_CLEAN, FIELD, r);
         double h = r.getHeight();
@@ -612,44 +610,41 @@ public final class MainScene {
         }
     }
 
-    /** Botão de página inspirado nos controles de reorganização da Playlist; o hitbox permanece amplo. */
     private void taskPageButton(Graphics2D g, ButtonId id, Rectangle2D r, boolean left, boolean enabled) {
         boolean pressed = enabled && ui != null && ui.isPressed(id);
         boolean hovered = enabled && ui != null && ui.isHover(id);
-        double k = pressed ? 0.86 : hovered ? 1.04 : 1;
-        Rectangle2D rr = scaled(r, 0.76 * k);
-
-        Color fill = enabled ? (hovered ? new Color(0xFFE4EF) : new Color(0xFFF2F2))
-                : new Color(0xFFF7F5);
-        Color border = enabled ? Palette.BORDER : withAlpha(Palette.BORDER, 0.32);
-        Color arrow = enabled ? Palette.INK : withAlpha(Palette.INK, 0.32);
-        g.setColor(fill);
-        g.fill(new java.awt.geom.Ellipse2D.Double(rr.getX(), rr.getY(), rr.getWidth(), rr.getHeight()));
-        g.setColor(border);
+        double diameter = pressed ? 22 : 23;
+        double cx = r.getCenterX();
+        double cy = r.getCenterY();
+        var circle = new Ellipse2D.Double(cx - diameter / 2, cy - diameter / 2,
+                diameter, diameter);
+        Color top = new Color(enabled ? (hovered ? 0xFFF9D8 : 0xFFF2B4) : 0xFFF7E7);
+        Color bottom = new Color(enabled ? (pressed ? 0xECA234 : 0xFFC354) : 0xF9E6BF);
+        g.setPaint(new GradientPaint(0, (float) circle.getMinY(), top,
+                0, (float) circle.getMaxY(), bottom));
+        g.fill(circle);
+        g.setColor(new Color(enabled ? 0xB96720 : 0xDDBA97));
         g.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(new java.awt.geom.Ellipse2D.Double(rr.getX(), rr.getY(), rr.getWidth(), rr.getHeight()));
+        g.draw(circle);
 
-        double cx = rr.getCenterX();
-        double cy = rr.getCenterY();
-        double dx = rr.getWidth() * 0.13;
-        double dy = rr.getHeight() * 0.20;
+        double inset = 2.5;
+        g.setColor(new Color(255, 255, 255, enabled ? 225 : 170));
+        g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(new Arc2D.Double(circle.getX() + inset, circle.getY() + inset,
+                diameter - 2 * inset, diameter - 2 * inset, 42, 101, Arc2D.OPEN));
+
+        double dx = left ? 2.8 : -2.8;
+        double dy = 4.5;
         java.awt.geom.Path2D chevron = new java.awt.geom.Path2D.Double();
-        if (left) {
-            chevron.moveTo(cx + dx, cy - dy);
-            chevron.lineTo(cx - dx, cy);
-            chevron.lineTo(cx + dx, cy + dy);
-        } else {
-            chevron.moveTo(cx - dx, cy - dy);
-            chevron.lineTo(cx + dx, cy);
-            chevron.lineTo(cx - dx, cy + dy);
-        }
-        g.setStroke(new BasicStroke(2.1f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(arrow);
+        chevron.moveTo(cx + dx, cy - dy);
+        chevron.lineTo(cx - dx, cy);
+        chevron.lineTo(cx + dx, cy + dy);
+        g.setColor(enabled ? Palette.TIME_TEXT : new Color(0xCBA982));
+        g.setStroke(new BasicStroke(2.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(chevron);
 
         if (isFocused(UiAction.of(id))) {
-            Rectangle2D focusBox = scaled(rr, 1.14);
-            ProceduralArt.focusRing(g, focusBox, focusBox.getHeight() * 0.45);
+            ProceduralArt.focusRing(g, circle.getBounds2D(), diameter);
         }
     }
 
