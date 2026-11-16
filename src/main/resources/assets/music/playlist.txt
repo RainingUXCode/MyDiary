@@ -1,0 +1,8 @@
+# Playlist padrão do Observer Notes: arquivo|título de exibição (os arquivos MP3 mantêm os metadados originais)
+sweet-morning.mp3|Sweet Morning
+starry-notes.mp3|Starry Notes
+cotton-candy.mp3|Cotton Candy
+pink-cafe.mp3|Pink Café
+soft-breeze.mp3|Soft Breeze
+sunny-day.mp3|Sunny Day
+dreamy-days.mp3|Dreamy Days
