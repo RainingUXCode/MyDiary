@@ -1240,14 +1240,15 @@ public final class MainScene {
                 repeatOn ? new Color(0xA6205A) : new Color(0x945272));
         var repeatFont = fonts.display(19);
         double textWidth = TextPainter.width(g, "Repetir", repeatFont);
-        double iconSize = rr.getHeight() * 0.58;
-        double gap = rr.getHeight() * 0.15;
-        double groupWidth = iconSize + gap + textWidth;
+        double iconHeight = 20.7;
+        double iconWidth = iconHeight * 34.0 / 38.0;
+        double gap = 6.2;
+        double groupWidth = iconWidth + gap + textWidth;
         double groupX = rr.getCenterX() - groupWidth / 2;
         Rectangle2D repeatIcon = new Rectangle2D.Double(groupX,
-                rr.getCenterY() - iconSize / 2, iconSize, iconSize);
-        repeatSymbol(g, repeatIcon, repeatOn);
-        double textX = groupX + iconSize + gap;
+                rr.getCenterY() - iconHeight / 2, iconWidth, iconHeight);
+        s.spriteAlpha(Asset.ICON_REPEAT, repeatIcon, repeatOn ? 1f : 0.48f);
+        double textX = groupX + iconWidth + gap;
         TextPainter.draw(g, "Repetir", repeatFont, textX,
                 TextPainter.centerBaseline(g, repeatFont, rr.getCenterY()),
                 repeatOn ? Color.WHITE : new Color(0x8E5B75),
@@ -1297,100 +1298,19 @@ public final class MainScene {
     private void sfxToggleLabel(Surface s, Graphics2D g, Rectangle2D button, boolean enabled) {
         var font = fonts.display(21);
         double textWidth = TextPainter.width(g, "SFX", font);
-        double iconWidth = button.getHeight() * 0.60;
-        double gap = 7.5;
+        double iconWidth = 24.5;
+        double iconHeight = iconWidth * 32.0 / 45.0;
+        double gap = 7.0;
         double groupX = button.getCenterX() - (iconWidth + gap + textWidth) / 2;
         double textCenterY = button.getCenterY() + 2;         // compensação visual da Cloud Soft dentro da cápsula
         double iconCenterY = textCenterY - 1.0;
-        Rectangle2D iconBox = new Rectangle2D.Double(groupX, iconCenterY - iconWidth / 2, iconWidth, iconWidth);
-        speakerSymbol(g, iconBox, enabled);
+        Rectangle2D iconBox = new Rectangle2D.Double(groupX, iconCenterY - iconHeight / 2, iconWidth, iconHeight);
+        s.spriteAlpha(Asset.ICON_SFX, iconBox, enabled ? 1f : 0.48f);
 
         Color fill = enabled ? Color.WHITE : new Color(0x9A6B83);
         Color outline = enabled ? new Color(0xB8205F) : null;
         TextPainter.draw(g, "SFX", font, groupX + iconWidth + gap,
                 TextPainter.centerBaseline(g, font, textCenterY), fill, outline, enabled ? 3 : 0);
-    }
-
-    /** Duas setas curvas, sólidas e separadas; o estado muda apenas a opacidade. */
-    private static void repeatSymbol(Graphics2D g, Rectangle2D box, boolean enabled) {
-        double x = box.getX(), y = box.getY(), w = box.getWidth(), h = box.getHeight();
-        java.awt.geom.Path2D top = new java.awt.geom.Path2D.Double();
-        top.moveTo(x + w * 0.10, y + h * 0.43);
-        top.curveTo(x + w * 0.22, y + h * 0.10, x + w * 0.58, y + h * 0.07,
-                x + w * 0.78, y + h * 0.25);
-        top.lineTo(x + w * 0.69, y + h * 0.35);
-        top.curveTo(x + w * 0.54, y + h * 0.21, x + w * 0.31, y + h * 0.20,
-                x + w * 0.22, y + h * 0.44);
-        top.quadTo(x + w * 0.15, y + h * 0.49, x + w * 0.10, y + h * 0.43);
-        top.closePath();
-        java.awt.geom.Area symbol = new java.awt.geom.Area(top);
-        java.awt.geom.Path2D topHead = new java.awt.geom.Path2D.Double();
-        topHead.moveTo(x + w * 0.73, y + h * 0.13);
-        topHead.quadTo(x + w * 0.76, y + h * 0.12, x + w * 0.79, y + h * 0.16);
-        topHead.lineTo(x + w * 0.96, y + h * 0.30);
-        topHead.quadTo(x + w * 1.00, y + h * 0.35, x + w * 0.95, y + h * 0.39);
-        topHead.lineTo(x + w * 0.72, y + h * 0.51);
-        topHead.quadTo(x + w * 0.67, y + h * 0.53, x + w * 0.68, y + h * 0.48);
-        topHead.lineTo(x + w * 0.70, y + h * 0.19);
-        topHead.quadTo(x + w * 0.70, y + h * 0.14, x + w * 0.73, y + h * 0.13);
-        topHead.closePath();
-        symbol.add(new java.awt.geom.Area(topHead));
-
-        java.awt.geom.Path2D bottom = new java.awt.geom.Path2D.Double();
-        bottom.moveTo(x + w * 0.90, y + h * 0.57);
-        bottom.curveTo(x + w * 0.78, y + h * 0.90, x + w * 0.42, y + h * 0.93,
-                x + w * 0.22, y + h * 0.75);
-        bottom.lineTo(x + w * 0.31, y + h * 0.65);
-        bottom.curveTo(x + w * 0.46, y + h * 0.79, x + w * 0.69, y + h * 0.80,
-                x + w * 0.78, y + h * 0.56);
-        bottom.quadTo(x + w * 0.85, y + h * 0.51, x + w * 0.90, y + h * 0.57);
-        bottom.closePath();
-        symbol.add(new java.awt.geom.Area(bottom));
-        java.awt.geom.Path2D bottomHead = new java.awt.geom.Path2D.Double();
-        bottomHead.moveTo(x + w * 0.27, y + h * 0.87);
-        bottomHead.quadTo(x + w * 0.24, y + h * 0.88, x + w * 0.21, y + h * 0.84);
-        bottomHead.lineTo(x + w * 0.04, y + h * 0.70);
-        bottomHead.quadTo(x, y + h * 0.65, x + w * 0.05, y + h * 0.61);
-        bottomHead.lineTo(x + w * 0.28, y + h * 0.49);
-        bottomHead.quadTo(x + w * 0.33, y + h * 0.47, x + w * 0.32, y + h * 0.52);
-        bottomHead.lineTo(x + w * 0.30, y + h * 0.81);
-        bottomHead.quadTo(x + w * 0.30, y + h * 0.86, x + w * 0.27, y + h * 0.87);
-        bottomHead.closePath();
-        symbol.add(new java.awt.geom.Area(bottomHead));
-        fillAudioSymbol(g, symbol, enabled);
-    }
-
-    /** Alto-falante sólido e duas ondas independentes, sem haste de megafone. */
-    private static void speakerSymbol(Graphics2D g, Rectangle2D box, boolean enabled) {
-        double x = box.getX(), y = box.getY(), w = box.getWidth(), h = box.getHeight();
-        java.awt.geom.Area symbol = new java.awt.geom.Area(new RoundRectangle2D.Double(
-                x, y + h * 0.36, w * 0.25, h * 0.28, h * 0.10, h * 0.10));
-        java.awt.geom.Path2D cone = new java.awt.geom.Path2D.Double();
-        cone.moveTo(x + w * 0.21, y + h * 0.37);
-        cone.quadTo(x + w * 0.24, y + h * 0.36, x + w * 0.27, y + h * 0.33);
-        cone.lineTo(x + w * 0.47, y + h * 0.17);
-        cone.quadTo(x + w * 0.53, y + h * 0.12, x + w * 0.53, y + h * 0.21);
-        cone.lineTo(x + w * 0.53, y + h * 0.79);
-        cone.quadTo(x + w * 0.53, y + h * 0.88, x + w * 0.47, y + h * 0.83);
-        cone.lineTo(x + w * 0.27, y + h * 0.67);
-        cone.quadTo(x + w * 0.24, y + h * 0.64, x + w * 0.21, y + h * 0.63);
-        cone.closePath();
-        symbol.add(new java.awt.geom.Area(cone));
-
-        BasicStroke waveStroke = new BasicStroke((float) (w * 0.105),
-                BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
-        java.awt.Shape inner = new java.awt.geom.Arc2D.Double(x + w * 0.47, y + h * 0.29,
-                w * 0.24, h * 0.42, -58, 116, java.awt.geom.Arc2D.OPEN);
-        java.awt.Shape outer = new java.awt.geom.Arc2D.Double(x + w * 0.59, y + h * 0.12,
-                w * 0.35, h * 0.76, -55, 110, java.awt.geom.Arc2D.OPEN);
-        symbol.add(new java.awt.geom.Area(waveStroke.createStrokedShape(inner)));
-        symbol.add(new java.awt.geom.Area(waveStroke.createStrokedShape(outer)));
-        fillAudioSymbol(g, symbol, enabled);
-    }
-
-    private static void fillAudioSymbol(Graphics2D g, java.awt.Shape symbol, boolean enabled) {
-        g.setColor(enabled ? Color.WHITE : withAlpha(Color.WHITE, 0.52));
-        g.fill(symbol);
     }
 
     private void volumeBar(Graphics2D g, Rectangle2D bar, double value, boolean enabled) {
