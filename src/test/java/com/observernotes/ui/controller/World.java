@@ -13,6 +13,7 @@ import com.observernotes.ui.model.PanelMode;
 import com.observernotes.ui.model.ScreenModel;
 import com.observernotes.ui.widget.TextInput;
 import com.observernotes.ui.widget.UiAction;
+import com.observernotes.sfx.SoundEffects;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
@@ -57,14 +58,20 @@ final class World {
     AppController controller;
     int repaints;
     EffectSink sink = EffectSink.NONE;
+    SoundEffects sounds = SoundEffects.NONE;
 
     World(Path dir) {
         this(dir, EffectSink.NONE);
     }
 
     World(Path dir, EffectSink sink) {
+        this(dir, sink, SoundEffects.NONE);
+    }
+
+    World(Path dir, EffectSink sink, SoundEffects sounds) {
         this.dir = dir;
         this.sink = sink;
+        this.sounds = sounds;
         restart();
     }
 
@@ -76,7 +83,7 @@ final class World {
         input = new TextInput();
         scheduled.clear();
         controller = new AppController(core, tracker, input, ZoneOffset.UTC, () -> repaints++,
-                (task, ms) -> scheduled.add(task), sink);
+                (task, ms) -> scheduled.add(task), sink, sounds);
     }
 
     ScreenModel model() {

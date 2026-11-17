@@ -7,6 +7,7 @@ import com.observernotes.ui.controller.PlayerUi;
 import com.observernotes.ui.assets.AssetCatalog;
 import com.observernotes.ui.controller.AppController;
 import com.observernotes.ui.controller.SaveFailureTracker;
+import com.observernotes.sfx.SoundEffects;
 import java.awt.Dimension;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -29,11 +30,12 @@ public final class MainWindow extends JFrame {
     private final AppCore core;
     private MusicPlayer music;
     private PlayerUi playerUi;
+    private final SoundEffects sfx;
     private NotebookCanvas canvas;
     private File lastMusicDir;
 
     public MainWindow(AppCore core, SaveFailureTracker failures) {
-        this(core, failures, null);
+        this(core, failures, null, SoundEffects.NONE);
     }
 
     /**
@@ -41,8 +43,14 @@ public final class MainWindow extends JFrame {
      *                     {@code null} = sem player (rodapé só visual)
      */
     public MainWindow(AppCore core, SaveFailureTracker failures, Function<Runnable, MusicPlayer> musicFactory) {
+        this(core, failures, musicFactory, SoundEffects.NONE);
+    }
+
+    public MainWindow(AppCore core, SaveFailureTracker failures, Function<Runnable, MusicPlayer> musicFactory,
+                      SoundEffects soundEffects) {
         super("Observer Notes");
         this.core = core;
+        this.sfx = soundEffects == null ? SoundEffects.NONE : soundEffects;
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         canvas = new NotebookCanvas(new AssetCatalog());
         AppController[] holder = new AppController[1];
@@ -50,7 +58,7 @@ public final class MainWindow extends JFrame {
                 () -> {
                     canvas.setModel(holder[0].model());
                     canvas.setPlayer(holder[0].playerModel());
-                }, MainWindow::later, canvas.effects());
+                }, MainWindow::later, canvas.effects(), this.sfx);
         holder[0] = controller;
         if (musicFactory != null) {
             music = musicFactory.apply(() -> SwingUtilities.invokeLater(() -> {
@@ -79,6 +87,7 @@ public final class MainWindow extends JFrame {
     /** Avisos da partida (arquivo recuperado, inválido...), mostrados em português compreensível. */
     public void showStartupMessages() {
         var messages = new java.util.ArrayList<>(core.startupMessages());
+        messages.addAll(sfx.startupMessages());
         if (music != null && !music.startupWarning().isEmpty()) {
             messages.add(music.startupWarning());
         }
@@ -101,6 +110,7 @@ public final class MainWindow extends JFrame {
         if (music != null) {
             music.close();                                  // para o áudio e libera a placa de som
         }
+        sfx.close();                                        // fecha os Clips pré-carregados de SFX
         dispose();
         System.exit(0);
     }

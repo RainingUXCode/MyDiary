@@ -16,6 +16,9 @@ import com.observernotes.ui.model.TaskRowModel;
 import com.observernotes.ui.model.ScreenModel;
 import com.observernotes.ui.widget.TextInput;
 import com.observernotes.ui.widget.UiAction;
+import com.observernotes.sfx.SfxEffect;
+import com.observernotes.sfx.SoundEffects;
+import com.observernotes.persistence.PersistenceException;
 import java.time.ZoneId;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -39,6 +42,7 @@ public final class AppController {
     private final FooterMessages footer;
     private final CelebrationCollector celebrations = new CelebrationCollector();
     private final EffectSink effects;
+    private final SoundEffects sfx;
     private PlayerUi player;
 
     private PanelMode mode = PanelMode.TASKS;
@@ -46,6 +50,7 @@ public final class AppController {
     private int noticeSerial;
     private boolean stateSaveFailing;
     private boolean settingsSaveFailing;
+    private boolean sfxSaveFailing;
     private boolean noticeWarning = true;
     private int historyOffset;
     private int taskPage;
@@ -61,7 +66,14 @@ public final class AppController {
     /** @param effects recebe os pedidos de animação; falhas dele são ignoradas e nunca afetam o núcleo */
     public AppController(AppCore app, SaveFailureTracker failures, TextInput input, ZoneId zone, Runnable onChange,
                          BiConsumer<Runnable, Integer> scheduler, EffectSink effects) {
+        this(app, failures, input, zone, onChange, scheduler, effects, SoundEffects.NONE);
+    }
+
+    /** SFX é uma porta independente do player musical; em testes pode ser substituída por um gravador simples. */
+    public AppController(AppCore app, SaveFailureTracker failures, TextInput input, ZoneId zone, Runnable onChange,
+                         BiConsumer<Runnable, Integer> scheduler, EffectSink effects, SoundEffects soundEffects) {
         this.effects = effects == null ? EffectSink.NONE : effects;
+        this.sfx = soundEffects == null ? SoundEffects.NONE : soundEffects;
         this.app = app;
         this.failures = failures;
         this.input = input;
@@ -94,7 +106,7 @@ public final class AppController {
         ScreenModel.Feedback fb;
         if (!notice.isEmpty()) {
             fb = new ScreenModel.Feedback(notice, noticeWarning, noticeWarning, placeholder);
-        } else if (stateSaveFailing || settingsSaveFailing) {
+        } else if (stateSaveFailing || settingsSaveFailing || sfxSaveFailing) {
             fb = new ScreenModel.Feedback(saveFailureText(), true, false, placeholder);
         } else {
             fb = new ScreenModel.Feedback("", false, false, placeholder);
@@ -106,6 +118,9 @@ public final class AppController {
     }
 
     private String saveFailureText() {
+        if (sfxSaveFailing && !stateSaveFailing && !settingsSaveFailing) {
+            return "Falha ao salvar os efeitos sonoros: a mudança ainda não está no disco";
+        }
         return settingsSaveFailing && !stateSaveFailing
                 ? "Falha ao salvar as preferências: a mudança ainda não está no disco"
                 : "Falha ao salvar: as alterações ainda não estão no disco";
@@ -118,7 +133,9 @@ public final class AppController {
 
     /** Estado do player para desenhar; {@code NONE} se não há player. */
     public com.observernotes.ui.model.PlayerModel playerModel() {
-        return player == null ? com.observernotes.ui.model.PlayerModel.NONE : player.model();
+        var base = player == null ? com.observernotes.ui.model.PlayerModel.NONE : player.model();
+        var prefs = sfx.preferences();
+        return base.withSfx(prefs.enabled(), prefs.volume());
     }
 
     /** Aviso vindo do player (arquivos adicionados, faixa que não abriu...). */
@@ -129,9 +146,18 @@ public final class AppController {
 
     /** Executa uma ação do usuário e avisa a interface para redesenhar. */
     public void handle(UiAction action) {
+        if (action.type() == UiAction.Type.SFX_TOGGLE || action.type() == UiAction.Type.SFX_VOLUME) {
+            handleSfxSetting(action);
+            onChange.run();
+            return;
+        }
         if (action.type().isPlayer()) {
             if (player != null) {
-                player.handle(action);
+                boolean changed = player.handle(action);
+                if (changed && !(action.type() == UiAction.Type.PLAYER_VOLUME && action.key().startsWith("set:"))
+                        && action.type() != UiAction.Type.PLAYER_SCROLL) {
+                    sfx.play(SfxEffect.CLICK);
+                }
             }
             onChange.run();
             return;
@@ -141,13 +167,14 @@ public final class AppController {
             player.closePanel();                           // navegar fecha a playlist; a música continua
         }
         celebrations.drain();                              // descarta qualquer sobra antiga
+        SfxEffect[] sound = {null};
         switch (action.type()) {
-            case NAV_LIST -> mode = PanelMode.TASKS;
-            case NAV_ALERTS -> mode = PanelMode.OBSERVERS;
-            case NAV_RECORD -> mode = PanelMode.HISTORY;
-            case TASK_PAGE_PREVIOUS -> changeTaskPage(-1);
-            case TASK_PAGE_NEXT -> changeTaskPage(1);
-            case ADD, SUBMIT -> submit();
+            case NAV_LIST -> { mode = PanelMode.TASKS; sound[0] = SfxEffect.CLICK; }
+            case NAV_ALERTS -> { mode = PanelMode.OBSERVERS; sound[0] = SfxEffect.CLICK; }
+            case NAV_RECORD -> { mode = PanelMode.HISTORY; sound[0] = SfxEffect.CLICK; }
+            case TASK_PAGE_PREVIOUS -> { if (changeTaskPage(-1)) sound[0] = SfxEffect.PAGE; }
+            case TASK_PAGE_NEXT -> { if (changeTaskPage(1)) sound[0] = SfxEffect.PAGE; }
+            case ADD, SUBMIT -> { if (submit()) sound[0] = SfxEffect.CREATE; }
             case TOGGLE_TASK -> withTask(action.key(), id -> {
                 boolean wasDone = isDone(action.key());
                 int before = failures.count();
@@ -155,6 +182,9 @@ public final class AppController {
                 stateSaveFailing = failures.count() != before || app.lastSaveError().isPresent();
                 if (!wasDone && isDone(action.key())) {
                     fx(() -> effects.taskCompleted(action.key()));
+                    sound[0] = SfxEffect.COMPLETE;
+                } else {
+                    sound[0] = SfxEffect.CLICK;
                 }
             });
             case DELETE_TASK -> withTask(action.key(), id -> {
@@ -170,20 +200,64 @@ public final class AppController {
                 if (removed && slot >= 0 && taskPage == pageBefore) {
                     fx(() -> effects.taskDeleted(rows.get(slot), slot));
                 }
+                if (removed) {
+                    sound[0] = SfxEffect.CLICK;
+                }
             });
-            case TOGGLE_OBSERVER -> toggleObserver(action.key());
+            case TOGGLE_OBSERVER -> { if (toggleObserver(action.key())) sound[0] = SfxEffect.CLICK; }
             case CLEAR -> {
                 int before = failures.count();
                 app.clearHistory();
                 historyOffset = 0;
                 stateSaveFailing = failures.count() != before || app.lastSaveError().isPresent();
+                sound[0] = SfxEffect.CLICK;
             }
             case SCROLL_HISTORY -> scrollHistory(action.key());
             case HINT -> setNotice(action.key(), false);
             case FOCUS_FIELD -> { }
         }
-        celebrate();
+        if (celebrate()) {
+            sound[0] = SfxEffect.MEDAL;                    // medalha/conquista máxima vence conclusão/estrela
+        }
+        if (sound[0] != null) {
+            sfx.play(sound[0]);
+        }
         onChange.run();
+    }
+
+    private void handleSfxSetting(UiAction action) {
+        try {
+            if (action.type() == UiAction.Type.SFX_TOGGLE) {
+                boolean enable = !sfx.preferences().enabled();
+                sfx.setEnabled(enable);
+                sfxSaveFailing = false;
+                if (enable) {
+                    sfx.play(SfxEffect.CLICK);              // desligar nunca produz som
+                }
+                return;
+            }
+            if (!sfx.preferences().enabled()) {
+                return;                                     // controles de volume ficam realmente desabilitados
+            }
+            double value = sfx.preferences().volume();
+            if (action.key().equals("+")) {
+                value += 0.1;
+            } else if (action.key().equals("-")) {
+                value -= 0.1;
+            } else if (action.key().startsWith("set:")) {
+                value = Double.parseDouble(action.key().substring(4));
+            } else {
+                return;
+            }
+            sfx.setVolume(Math.round(Math.max(0, Math.min(1, value)) * 100) / 100.0);
+            sfxSaveFailing = false;
+            // Slider e ajuste contínuo ficam silenciosos; não há prévia repetitiva.
+        } catch (NumberFormatException ignored) {
+            // ação inválida não altera nem toca nada
+        } catch (PersistenceException e) {
+            sfxSaveFailing = true;
+            setNotice("Não foi possível salvar as preferências de efeitos sonoros", true);
+        }
     }
 
     private java.util.List<TaskRowModel> currentRows() {
@@ -219,10 +293,13 @@ public final class AppController {
         return Math.max(0, Math.min(page, pageCount() - 1));
     }
 
-    private void changeTaskPage(int delta) {
+    private boolean changeTaskPage(int delta) {
         if (mode == PanelMode.TASKS) {
+            int before = taskPage;
             setTaskPage(clampTaskPage(taskPage + delta));
+            return taskPage != before;
         }
+        return false;
     }
 
     private void setTaskPage(int page) {
@@ -237,13 +314,18 @@ public final class AppController {
     }
 
     /** Pede comemoração só para marcos que o domínio acabou de publicar e só com o observador de Conquistas ligado. */
-    private void celebrate() {
+    private boolean celebrate() {
         var unlocked = celebrations.drain();
-        if (!app.observers().isEnabled(ObserverKind.ACHIEVEMENTS)) {
-            return;
-        }
+        boolean show = app.observers().isEnabled(ObserverKind.ACHIEVEMENTS);
+        boolean medal = false;
         for (MilestoneUnlocked m : unlocked) {
             RewardType r = m.milestone().reward();
+            if (r != RewardType.STAR) {
+                medal = true;
+            }
+            if (!show) {
+                continue; // o desbloqueio continua real e sonoro; só a animação depende do observador visual
+            }
             if (r == RewardType.STAR) {
                 int n = AchievementProgress.of(m.totalScored()).starsInCurrentTier();
                 fx(() -> effects.star(n));
@@ -257,6 +339,7 @@ public final class AppController {
                 fx(() -> effects.medal(tier));
             }
         }
+        return medal;
     }
 
     /** Efeitos são só aparência: qualquer falha deles é descartada. */
@@ -289,11 +372,11 @@ public final class AppController {
         historyOffset = Math.max(0, Math.min(max, target));
     }
 
-    private void submit() {
+    private boolean submit() {
         String text = input.text();
         if (text.isBlank()) {
             setNotice("Escreva um título para a tarefa");
-            return;
+            return false;
         }
         int before = failures.count();
         TaskView created;
@@ -301,10 +384,10 @@ public final class AppController {
             created = app.service().createTask(text);
         } catch (BoardFullException e) {
             setNotice("Limite de " + TaskBoard.MAX_TASKS + " tarefas: conclua ou exclua uma para criar outra");
-            return;
+            return false;
         } catch (IllegalArgumentException e) {
             setNotice(e.getMessage());
-            return;
+            return false;
         }
         stateSaveFailing = failures.count() != before || app.lastSaveError().isPresent();
         input.clear();
@@ -312,6 +395,7 @@ public final class AppController {
         String id = created.id().toString();
         setTaskPage((app.service().tasks().size() - 1) / ScreenAssembler.TASKS_PER_PAGE);
         fx(() -> effects.taskCreated(id));
+        return true;
     }
 
     private void withTask(String key, java.util.function.Consumer<TaskId> action) {
@@ -322,16 +406,17 @@ public final class AppController {
         }
     }
 
-    private void toggleObserver(String key) {
+    private boolean toggleObserver(String key) {
         ObserverKind kind;
         try {
             kind = ObserverKind.valueOf(key);
         } catch (IllegalArgumentException e) {
-            return;
+            return false;
         }
         int before = failures.count();
         app.observers().setEnabled(kind, !app.observers().isEnabled(kind));
         settingsSaveFailing = failures.count() != before;
+        return true;
     }
 
     private void setNotice(String text) {

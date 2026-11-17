@@ -5,6 +5,9 @@ import com.observernotes.music.JavaSoundBackend;
 import com.observernotes.music.JsonPlaylistStore;
 import com.observernotes.music.MusicPlayer;
 import com.observernotes.persistence.UserDataDirectory;
+import com.observernotes.persistence.JsonSfxSettingsRepository;
+import com.observernotes.sfx.ClasspathSfxAudio;
+import com.observernotes.sfx.SfxService;
 import com.observernotes.ui.MainWindow;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -27,7 +30,8 @@ public final class Main {
                     // a playlist padrão é um extra: o app abre mesmo assim
                 }
                 MainWindow window = new MainWindow(started.core(), started.failures(),
-                        onChange -> new MusicPlayer(new JavaSoundBackend(), new JsonPlaylistStore(dir), onChange));
+                        onChange -> new MusicPlayer(new JavaSoundBackend(), new JsonPlaylistStore(dir), onChange),
+                        new SfxService(new ClasspathSfxAudio(), new JsonSfxSettingsRepository(dir)));
                 window.setVisible(true);
                 window.showStartupMessages();
             } catch (RuntimeException e) {

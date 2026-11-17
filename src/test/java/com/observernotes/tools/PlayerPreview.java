@@ -5,6 +5,7 @@ import com.observernotes.ui.assets.AssetCatalog;
 import com.observernotes.ui.model.AchievementTier;
 import com.observernotes.ui.model.PanelMode;
 import com.observernotes.ui.model.PlayerModel;
+import com.observernotes.ui.scene.MainScene;
 import com.observernotes.ui.widget.UiAction;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -31,11 +32,41 @@ public final class PlayerPreview {
     }
 
     private static void save(NotebookCanvas c, File out) throws Exception {
+        ImageIO.write(render(c), "png", out);
+    }
+
+    private static BufferedImage render(NotebookCanvas c) {
         BufferedImage img = new BufferedImage(1397, 742, BufferedImage.TYPE_INT_RGB);
         var g = img.createGraphics();
         c.paintScene(g, 1397, 742);
         g.dispose();
-        ImageIO.write(img, "png", out);
+        return img;
+    }
+
+    /** Recorte no tamanho real: coluna esquerda ativa, coluna direita desativada. */
+    private static void saveAudioButtonStates(NotebookCanvas c, File out) throws Exception {
+        PlayerModel active = model(7, 1, true, true, 0);
+        c.setPlayer(active);
+        BufferedImage on = render(c);
+        c.setPlayer(new PlayerModel(active.available(), active.playing(), active.paused(), active.title(), active.rows(),
+                active.volume(), false, active.panelOpen(), active.panelOffset(), false, active.sfxVolume()));
+        BufferedImage off = render(c);
+
+        var repeat = MainScene.repeatRect();
+        var sfx = MainScene.sfxToggleRect();
+        int x = (int) Math.floor(Math.min(repeat.getX(), sfx.getX()) - 8);
+        int y = (int) Math.floor(repeat.getY() - 8);
+        int w = (int) Math.ceil(Math.max(repeat.getMaxX(), sfx.getMaxX()) + 8) - x;
+        int h = (int) Math.ceil(sfx.getMaxY() + 8) - y;
+        int gap = 18;
+        BufferedImage preview = new BufferedImage(w * 2 + gap, h, BufferedImage.TYPE_INT_RGB);
+        var g = preview.createGraphics();
+        g.setColor(com.observernotes.ui.Palette.DESK);
+        g.fillRect(0, 0, preview.getWidth(), preview.getHeight());
+        g.drawImage(on.getSubimage(x, y, w, h), 0, 0, null);
+        g.drawImage(off.getSubimage(x, y, w, h), w + gap, 0, null);
+        g.dispose();
+        ImageIO.write(preview, "png", out);
     }
 
     public static void main(String[] args) throws Exception {
@@ -46,6 +77,7 @@ public final class PlayerPreview {
         NotebookCanvas c = new NotebookCanvas(new AssetCatalog(), clock::get);
         c.setSize(1397, 742);
         c.setModel(MockupSample.screen(PanelMode.TASKS));
+        saveAudioButtonStates(c, new File(dir, "audio-buttons-active-disabled.png"));
 
         c.setPlayer(model(7, 0, false, false, 0));
         save(c, new File(dir, "player-parado.png"));

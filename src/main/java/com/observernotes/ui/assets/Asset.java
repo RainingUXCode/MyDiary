@@ -50,6 +50,8 @@ public enum Asset {
     /** Gerado a partir do triângulo e do círculo do botão "próximo" (não havia PNG de "tocar" no mockup). */
     PLAYER_PLAY("ui/tocar.png"),
     PLAYER_NEXT("ui/proximo.png"),
+    ICON_REPEAT("ui/icone-repetir.png"),
+    ICON_SFX("ui/icone-sfx.png"),
 
     // --- Detalhes pequenos ---------------------------------------------------
     TINY_HEART("ui/tiny-heart.png"),

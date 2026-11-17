@@ -136,6 +136,29 @@ class PlayerCanvasTest {
     }
 
     @Test
+    void audioRowsShareOneGridAndDisabledSfxOnlyKeepsItsToggleClickable() {
+        ScreenModel m = MockupSample.screen(PanelMode.TASKS);
+        PlayerModel on = player(4, true, true, 0);
+        assertEquals(MainScene.repeatRect().getX(), MainScene.sfxToggleRect().getX(), 0.01);
+        assertEquals(MainScene.repeatRect().getWidth(), MainScene.sfxToggleRect().getWidth(), 0.01);
+        assertEquals(MainScene.volumeMinusRect().getX(), MainScene.sfxVolumeMinusRect().getX(), 0.01);
+        assertEquals(MainScene.volumeBarRect().getX(), MainScene.sfxVolumeBarRect().getX(), 0.01);
+        assertEquals(MainScene.volumeBarRect().getWidth(), MainScene.sfxVolumeBarRect().getWidth(), 0.01);
+        assertEquals(MainScene.volumePlusRect().getX(), MainScene.sfxVolumePlusRect().getX(), 0.01);
+        assertEquals(UiAction.Type.SFX_TOGGLE,
+                MainScene.actionAt(center(MainScene.sfxToggleRect()), m, on).type());
+
+        PlayerModel off = new PlayerModel(on.available(), on.playing(), on.paused(), on.title(), on.rows(),
+                on.volume(), on.repeat(), on.panelOpen(), on.panelOffset(), false, on.sfxVolume());
+        assertEquals(UiAction.Type.SFX_TOGGLE,
+                MainScene.actionAt(center(MainScene.sfxToggleRect()), m, off).type());
+        assertNull(MainScene.actionAt(center(MainScene.sfxVolumeMinusRect()), m, off));
+        assertNull(MainScene.actionAt(center(MainScene.sfxVolumeBarRect()), m, off));
+        assertNull(MainScene.actionAt(center(MainScene.sfxVolumePlusRect()), m, off));
+        assertFalse(FocusRing.order(m, off).stream().anyMatch(a -> a.type() == UiAction.Type.SFX_VOLUME));
+    }
+
+    @Test
     void navAndFieldStillWorkWithThePlaylistOpen() {
         ScreenModel m = MockupSample.screen(PanelMode.TASKS);
         PlayerModel p = player(4, true, true, 0);

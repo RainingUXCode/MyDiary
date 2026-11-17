@@ -56,24 +56,25 @@ public final class PlayerUi {
     }
 
     /** Executa a ação do player. Chamado pelo controlador para qualquer {@code UiAction.Type.PLAYER_*}. */
-    public void handle(UiAction a) {
-        switch (a.type()) {
-            case PLAYER_PREVIOUS -> music.previous();
-            case PLAYER_NEXT -> music.next();
-            case PLAYER_TOGGLE -> music.toggle();
+    public boolean handle(UiAction a) {
+        boolean valid = switch (a.type()) {
+            case PLAYER_PREVIOUS -> withTracks(music::previous);
+            case PLAYER_NEXT -> withTracks(music::next);
+            case PLAYER_TOGGLE -> withTracks(music::toggle);
             case PLAYER_ADD -> addFiles();
-            case PLAYER_PANEL -> panelOpen = !panelOpen;
+            case PLAYER_PANEL -> { panelOpen = !panelOpen; yield true; }
             case PLAYER_PLAY -> withTrack(a.key(), music::playIndex);
             case PLAYER_REMOVE -> withTrack(a.key(), music::remove);
-            case PLAYER_UP -> withTrack(a.key(), i -> music.move(i, -1));
-            case PLAYER_DOWN -> withTrack(a.key(), i -> music.move(i, 1));
-            case PLAYER_REPEAT -> music.toggleRepeat();
+            case PLAYER_UP -> moveTrack(a.key(), -1);
+            case PLAYER_DOWN -> moveTrack(a.key(), 1);
+            case PLAYER_REPEAT -> { music.toggleRepeat(); yield true; }
             case PLAYER_VOLUME -> volume(a.key());
             case PLAYER_SCROLL -> scroll(a.key());
-            default -> { }
-        }
+            default -> false;
+        };
         clampOffset();
         onMusicChanged();
+        return valid;
     }
 
     /**
@@ -101,16 +102,16 @@ public final class PlayerUi {
         clampOffset();
     }
 
-    private void addFiles() {
+    private boolean addFiles() {
         List<Path> chosen;
         try {
             chosen = picker.get();
         } catch (RuntimeException e) {
             notifier.accept("Não foi possível abrir o seletor de arquivos", true);
-            return;
+            return false;
         }
         if (chosen == null || chosen.isEmpty()) {
-            return;                                                      // cancelou
+            return false;                                                // cancelou
         }
         var r = music.addFiles(chosen);
         panelOpen = true;
@@ -124,23 +125,30 @@ public final class PlayerUi {
             notifier.accept(r.unsupported() > 0 ? "Formato não suportado: use MP3 ou WAV"
                     : "Essas músicas já estão na playlist", true);
         }
+        return r.added() > 0;
     }
 
-    private void volume(String key) {
+    private boolean volume(String key) {
+        double before = music.snapshot().volume();
         if (key.equals("+")) {
             music.adjustVolume(VOLUME_STEP);
+            return music.snapshot().volume() != before;
         } else if (key.equals("-")) {
             music.adjustVolume(-VOLUME_STEP);
+            return music.snapshot().volume() != before;
         } else if (key.startsWith("set:")) {
             try {
                 music.setVolume(Double.parseDouble(key.substring(4)));
+                return music.snapshot().volume() != before;
             } catch (NumberFormatException ignored) {
                 // chave inválida: ignora
             }
         }
+        return false;
     }
 
-    private void scroll(String key) {
+    private boolean scroll(String key) {
+        int before = offset;
         int max = Math.max(0, music.snapshot().tracks().size() - PlayerModel.PANEL_ROWS);
         switch (key) {
             case "home" -> offset = 0;
@@ -153,6 +161,8 @@ public final class PlayerUi {
                 }
             }
         }
+        clampOffset();
+        return offset != before;
     }
 
     private void clampOffset() {
@@ -160,14 +170,37 @@ public final class PlayerUi {
         offset = Math.max(0, Math.min(offset, max));
     }
 
-    private void withTrack(String path, java.util.function.IntConsumer action) {
+    private boolean withTrack(String path, java.util.function.IntConsumer action) {
         var tracks = music.snapshot().tracks();
         for (int i = 0; i < tracks.size(); i++) {
             if (tracks.get(i).path().equals(path)) {
                 action.accept(i);
-                return;
+                return true;
             }
         }
+        return false;
+    }
+
+    private boolean moveTrack(String path, int delta) {
+        var tracks = music.snapshot().tracks();
+        for (int i = 0; i < tracks.size(); i++) {
+            if (tracks.get(i).path().equals(path)) {
+                if (i + delta < 0 || i + delta >= tracks.size()) {
+                    return false;
+                }
+                music.move(i, delta);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean withTracks(Runnable action) {
+        if (music.snapshot().tracks().isEmpty()) {
+            return false;
+        }
+        action.run();
+        return true;
     }
 
     private void fx(Runnable r) {

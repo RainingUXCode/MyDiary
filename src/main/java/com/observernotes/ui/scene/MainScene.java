@@ -217,9 +217,10 @@ public final class MainScene {
         return actionAt(logical, m, pm) != null;
     }
 
-    // ---- geometria do painel da playlist (linhas 0 a 4 = faixas; linha 5 = repetir e volume) ----
+    // ---- geometria do painel da playlist (linhas 0 a 3 = faixas; 4 = música; 5 = SFX) ----
 
-    private static final int CONTROL_ROW = 5;
+    private static final int CONTROL_ROW = 4;
+    private static final int SFX_ROW = 5;
 
     public static Rectangle2D playlistRemoveRect(int slot) {
         return closeRect(Layout.row(slot));
@@ -236,28 +237,69 @@ public final class MainScene {
     }
 
     public static Rectangle2D repeatRect() {
-        Rectangle2D r = Layout.row(CONTROL_ROW);
-        return new Rectangle2D.Double(r.getX() + 2, r.getCenterY() - r.getHeight() * 0.36, r.getWidth() * 0.27,
-                r.getHeight() * 0.72);
+        return audioToggleRect(CONTROL_ROW);
     }
 
     public static Rectangle2D volumeMinusRect() {
-        Rectangle2D r = Layout.row(CONTROL_ROW);
-        double sq = r.getHeight() * 0.56;
-        return new Rectangle2D.Double(r.getX() + r.getWidth() * 0.52, r.getCenterY() - sq / 2, sq, sq);
+        return audioMinusRect(CONTROL_ROW);
     }
 
     public static Rectangle2D volumePlusRect() {
-        Rectangle2D r = Layout.row(CONTROL_ROW);
-        double sq = r.getHeight() * 0.56;
-        return new Rectangle2D.Double(r.getMaxX() - sq - 4, r.getCenterY() - sq / 2, sq, sq);
+        return audioPlusRect(CONTROL_ROW);
     }
 
     public static Rectangle2D volumeBarRect() {
-        Rectangle2D minus = volumeMinusRect();
-        Rectangle2D plus = volumePlusRect();
+        return audioBarRect(CONTROL_ROW);
+    }
+
+    public static Rectangle2D sfxToggleRect() {
+        return audioToggleRect(SFX_ROW);
+    }
+
+    public static Rectangle2D sfxVolumeMinusRect() {
+        return audioMinusRect(SFX_ROW);
+    }
+
+    public static Rectangle2D sfxVolumePlusRect() {
+        return audioPlusRect(SFX_ROW);
+    }
+
+    public static Rectangle2D sfxVolumeBarRect() {
+        return audioBarRect(SFX_ROW);
+    }
+
+    /** Mesma grade nas duas linhas: botão, indicador, menos, slider e mais. */
+    private static Rectangle2D audioToggleRect(int rowIndex) {
+        Rectangle2D r = Layout.row(rowIndex);
+        double h = Layout.row(CONTROL_ROW).getHeight() * 0.72;
+        return new Rectangle2D.Double(r.getX() + 2, r.getCenterY() - h / 2, r.getWidth() * 0.27, h);
+    }
+
+    private static Rectangle2D audioMinusRect(int rowIndex) {
+        Rectangle2D r = Layout.row(rowIndex);
+        double sq = Layout.row(CONTROL_ROW).getHeight() * 0.56;
+        return new Rectangle2D.Double(r.getX() + r.getWidth() * 0.52, r.getCenterY() - sq / 2, sq, sq);
+    }
+
+    private static Rectangle2D audioPlusRect(int rowIndex) {
+        Rectangle2D r = Layout.row(rowIndex);
+        double sq = Layout.row(CONTROL_ROW).getHeight() * 0.56;
+        return new Rectangle2D.Double(r.getMaxX() - sq - 4, r.getCenterY() - sq / 2, sq, sq);
+    }
+
+    private static Rectangle2D audioBarRect(int rowIndex) {
+        Rectangle2D minus = audioMinusRect(rowIndex);
+        Rectangle2D plus = audioPlusRect(rowIndex);
         double x0 = minus.getMaxX() + 10;
         return new Rectangle2D.Double(x0, minus.getCenterY() - 6, plus.getX() - 10 - x0, 12);
+    }
+
+    private static Rectangle2D audioVolumeLabelRect(int rowIndex) {
+        Rectangle2D toggle = audioToggleRect(rowIndex);
+        Rectangle2D minus = audioMinusRect(rowIndex);
+        Rectangle2D row = Layout.row(rowIndex);
+        return new Rectangle2D.Double(toggle.getMaxX() + 6, row.getY(),
+                minus.getX() - toggle.getMaxX() - 10, row.getHeight());
     }
 
     private static UiAction playlistActionAt(Point2D p, PlayerModel pm) {
@@ -293,6 +335,21 @@ public final class MainScene {
         if (grow(bar, 8).contains(p)) {
             double v = Math.round((p.getX() - bar.getX()) / bar.getWidth() * 20) / 20.0;
             return new UiAction(UiAction.Type.PLAYER_VOLUME, String.format(java.util.Locale.ROOT, "set:%.2f",
+                    Math.max(0.0, Math.min(1.0, v))));
+        }
+        if (sfxToggleRect().contains(p)) {
+            return UiAction.of(UiAction.Type.SFX_TOGGLE);
+        }
+        if (pm.sfxEnabled() && grow(sfxVolumeMinusRect(), 4).contains(p)) {
+            return new UiAction(UiAction.Type.SFX_VOLUME, "-");
+        }
+        if (pm.sfxEnabled() && grow(sfxVolumePlusRect(), 4).contains(p)) {
+            return new UiAction(UiAction.Type.SFX_VOLUME, "+");
+        }
+        Rectangle2D sfxBar = sfxVolumeBarRect();
+        if (pm.sfxEnabled() && grow(sfxBar, 8).contains(p)) {
+            double v = Math.round((p.getX() - sfxBar.getX()) / sfxBar.getWidth() * 20) / 20.0;
+            return new UiAction(UiAction.Type.SFX_VOLUME, String.format(java.util.Locale.ROOT, "set:%.2f",
                     Math.max(0.0, Math.min(1.0, v))));
         }
         return null;
@@ -1154,6 +1211,7 @@ public final class MainScene {
         }
         addMusicButton(g);
         playlistControls(s, g);
+        sfxControls(s, g);
         playlistScrollBar(g);
     }
 
@@ -1182,15 +1240,13 @@ public final class MainScene {
                 repeatOn ? new Color(0xA6205A) : new Color(0x945272));
         var repeatFont = fonts.display(19);
         double textWidth = TextPainter.width(g, "Repetir", repeatFont);
-        double iconSize = rr.getHeight() * 0.46;
-        double gap = rr.getHeight() * 0.12;
+        double iconSize = rr.getHeight() * 0.58;
+        double gap = rr.getHeight() * 0.15;
         double groupWidth = iconSize + gap + textWidth;
         double groupX = rr.getCenterX() - groupWidth / 2;
         Rectangle2D repeatIcon = new Rectangle2D.Double(groupX,
                 rr.getCenterY() - iconSize / 2, iconSize, iconSize);
-        Color repeatIconColor = repeatOn ? Color.WHITE : new Color(0xA87991);
-        TextPainter.centered(g, "↻", fonts.body(21), repeatIcon,
-                repeatIconColor, repeatIconColor, 1.6);
+        repeatSymbol(g, repeatIcon, repeatOn);
         double textX = groupX + iconSize + gap;
         TextPainter.draw(g, "Repetir", repeatFont, textX,
                 TextPainter.centerBaseline(g, repeatFont, rr.getCenterY()),
@@ -1199,35 +1255,172 @@ public final class MainScene {
         if (isFocused(repeatId)) {
             ProceduralArt.focusRing(g, rep, rep.getHeight() * 0.5);
         }
-        Rectangle2D row = Layout.row(CONTROL_ROW);
-        Rectangle2D label2 = new Rectangle2D.Double(rep.getMaxX() + 6, row.getY(), volumeMinusRect().getX() - rep.getMaxX() - 10,
-                row.getHeight());
-        TextPainter.centered(g, "Vol. " + Math.round(player.volume() * 100) + "%", fonts.secondary(17), label2, Palette.INK_MUTED, null, 0);
+        TextPainter.centered(g, "Vol. " + Math.round(player.volume() * 100) + "%", fonts.secondary(17),
+                audioVolumeLabelRect(CONTROL_ROW), Palette.INK_MUTED, null, 0);
         arrowlessButton(g, volumeMinusRect(), new UiAction(UiAction.Type.PLAYER_VOLUME, "-"), "−");
         arrowlessButton(g, volumePlusRect(), new UiAction(UiAction.Type.PLAYER_VOLUME, "+"), "+");
-        Rectangle2D bar = volumeBarRect();
-        g.setColor(withAlpha(Palette.BORDER_SOFT, 0.7));
+        volumeBar(g, volumeBarRect(), player.volume(), true);
+    }
+
+    /** Linha discreta e independente para ativação e volume dos efeitos sonoros. */
+    private void sfxControls(Surface s, Graphics2D g) {
+        Rectangle2D row = Layout.row(SFX_ROW);
+        g.setColor(withAlpha(Palette.BORDER_SOFT, 0.65));
+        g.setStroke(new BasicStroke(1.2f));
+        g.draw(new java.awt.geom.Line2D.Double(row.getX() + 4, row.getY() + 1, row.getMaxX() - 4, row.getY() + 1));
+
+        UiAction toggleId = UiAction.of(UiAction.Type.SFX_TOGGLE);
+        Rectangle2D toggle = sfxToggleRect();
+        double tk = ui != null && ui.isPressedItem(toggleId) ? 0.94
+                : ui != null && ui.isHoverItem(toggleId) ? 1.04 : 1;
+        Rectangle2D tr = scaled(toggle, quantize(tk));
+        ProceduralArt.thinPill(g, tr,
+                player.sfxEnabled() ? new Color(0xFFA8D0) : new Color(0xF8E8F0),
+                player.sfxEnabled() ? new Color(0xFF5F9D) : new Color(0xE8C5D5),
+                player.sfxEnabled() ? Palette.BORDER : new Color(0x945272));
+        sfxToggleLabel(s, g, tr, player.sfxEnabled());
+        if (isFocused(toggleId)) {
+            ProceduralArt.focusRing(g, toggle, toggle.getHeight() * 0.5);
+        }
+
+        Color sfxText = player.sfxEnabled() ? Palette.INK_MUTED : withAlpha(Palette.INK_MUTED, 0.48);
+        TextPainter.centered(g, "Vol. " + Math.round(player.sfxVolume() * 100) + "%", fonts.secondary(17),
+                audioVolumeLabelRect(SFX_ROW), sfxText, null, 0);
+        arrowlessButton(g, sfxVolumeMinusRect(), new UiAction(UiAction.Type.SFX_VOLUME, "-"), "−",
+                player.sfxEnabled());
+        arrowlessButton(g, sfxVolumePlusRect(), new UiAction(UiAction.Type.SFX_VOLUME, "+"), "+",
+                player.sfxEnabled());
+        volumeBar(g, sfxVolumeBarRect(), player.sfxVolume(), player.sfxEnabled());
+    }
+
+    /** Alto-falante e texto formam um único conjunto, centralizado pela área visível. */
+    private void sfxToggleLabel(Surface s, Graphics2D g, Rectangle2D button, boolean enabled) {
+        var font = fonts.display(21);
+        double textWidth = TextPainter.width(g, "SFX", font);
+        double iconWidth = button.getHeight() * 0.60;
+        double gap = 7.5;
+        double groupX = button.getCenterX() - (iconWidth + gap + textWidth) / 2;
+        double textCenterY = button.getCenterY() + 2;         // compensação visual da Cloud Soft dentro da cápsula
+        double iconCenterY = textCenterY - 1.0;
+        Rectangle2D iconBox = new Rectangle2D.Double(groupX, iconCenterY - iconWidth / 2, iconWidth, iconWidth);
+        speakerSymbol(g, iconBox, enabled);
+
+        Color fill = enabled ? Color.WHITE : new Color(0x9A6B83);
+        Color outline = enabled ? new Color(0xB8205F) : null;
+        TextPainter.draw(g, "SFX", font, groupX + iconWidth + gap,
+                TextPainter.centerBaseline(g, font, textCenterY), fill, outline, enabled ? 3 : 0);
+    }
+
+    /** Duas setas curvas, sólidas e separadas; o estado muda apenas a opacidade. */
+    private static void repeatSymbol(Graphics2D g, Rectangle2D box, boolean enabled) {
+        double x = box.getX(), y = box.getY(), w = box.getWidth(), h = box.getHeight();
+        java.awt.geom.Path2D top = new java.awt.geom.Path2D.Double();
+        top.moveTo(x + w * 0.10, y + h * 0.43);
+        top.curveTo(x + w * 0.22, y + h * 0.10, x + w * 0.58, y + h * 0.07,
+                x + w * 0.78, y + h * 0.25);
+        top.lineTo(x + w * 0.69, y + h * 0.35);
+        top.curveTo(x + w * 0.54, y + h * 0.21, x + w * 0.31, y + h * 0.20,
+                x + w * 0.22, y + h * 0.44);
+        top.quadTo(x + w * 0.15, y + h * 0.49, x + w * 0.10, y + h * 0.43);
+        top.closePath();
+        java.awt.geom.Area symbol = new java.awt.geom.Area(top);
+        java.awt.geom.Path2D topHead = new java.awt.geom.Path2D.Double();
+        topHead.moveTo(x + w * 0.73, y + h * 0.13);
+        topHead.quadTo(x + w * 0.76, y + h * 0.12, x + w * 0.79, y + h * 0.16);
+        topHead.lineTo(x + w * 0.96, y + h * 0.30);
+        topHead.quadTo(x + w * 1.00, y + h * 0.35, x + w * 0.95, y + h * 0.39);
+        topHead.lineTo(x + w * 0.72, y + h * 0.51);
+        topHead.quadTo(x + w * 0.67, y + h * 0.53, x + w * 0.68, y + h * 0.48);
+        topHead.lineTo(x + w * 0.70, y + h * 0.19);
+        topHead.quadTo(x + w * 0.70, y + h * 0.14, x + w * 0.73, y + h * 0.13);
+        topHead.closePath();
+        symbol.add(new java.awt.geom.Area(topHead));
+
+        java.awt.geom.Path2D bottom = new java.awt.geom.Path2D.Double();
+        bottom.moveTo(x + w * 0.90, y + h * 0.57);
+        bottom.curveTo(x + w * 0.78, y + h * 0.90, x + w * 0.42, y + h * 0.93,
+                x + w * 0.22, y + h * 0.75);
+        bottom.lineTo(x + w * 0.31, y + h * 0.65);
+        bottom.curveTo(x + w * 0.46, y + h * 0.79, x + w * 0.69, y + h * 0.80,
+                x + w * 0.78, y + h * 0.56);
+        bottom.quadTo(x + w * 0.85, y + h * 0.51, x + w * 0.90, y + h * 0.57);
+        bottom.closePath();
+        symbol.add(new java.awt.geom.Area(bottom));
+        java.awt.geom.Path2D bottomHead = new java.awt.geom.Path2D.Double();
+        bottomHead.moveTo(x + w * 0.27, y + h * 0.87);
+        bottomHead.quadTo(x + w * 0.24, y + h * 0.88, x + w * 0.21, y + h * 0.84);
+        bottomHead.lineTo(x + w * 0.04, y + h * 0.70);
+        bottomHead.quadTo(x, y + h * 0.65, x + w * 0.05, y + h * 0.61);
+        bottomHead.lineTo(x + w * 0.28, y + h * 0.49);
+        bottomHead.quadTo(x + w * 0.33, y + h * 0.47, x + w * 0.32, y + h * 0.52);
+        bottomHead.lineTo(x + w * 0.30, y + h * 0.81);
+        bottomHead.quadTo(x + w * 0.30, y + h * 0.86, x + w * 0.27, y + h * 0.87);
+        bottomHead.closePath();
+        symbol.add(new java.awt.geom.Area(bottomHead));
+        fillAudioSymbol(g, symbol, enabled);
+    }
+
+    /** Alto-falante sólido e duas ondas independentes, sem haste de megafone. */
+    private static void speakerSymbol(Graphics2D g, Rectangle2D box, boolean enabled) {
+        double x = box.getX(), y = box.getY(), w = box.getWidth(), h = box.getHeight();
+        java.awt.geom.Area symbol = new java.awt.geom.Area(new RoundRectangle2D.Double(
+                x, y + h * 0.36, w * 0.25, h * 0.28, h * 0.10, h * 0.10));
+        java.awt.geom.Path2D cone = new java.awt.geom.Path2D.Double();
+        cone.moveTo(x + w * 0.21, y + h * 0.37);
+        cone.quadTo(x + w * 0.24, y + h * 0.36, x + w * 0.27, y + h * 0.33);
+        cone.lineTo(x + w * 0.47, y + h * 0.17);
+        cone.quadTo(x + w * 0.53, y + h * 0.12, x + w * 0.53, y + h * 0.21);
+        cone.lineTo(x + w * 0.53, y + h * 0.79);
+        cone.quadTo(x + w * 0.53, y + h * 0.88, x + w * 0.47, y + h * 0.83);
+        cone.lineTo(x + w * 0.27, y + h * 0.67);
+        cone.quadTo(x + w * 0.24, y + h * 0.64, x + w * 0.21, y + h * 0.63);
+        cone.closePath();
+        symbol.add(new java.awt.geom.Area(cone));
+
+        BasicStroke waveStroke = new BasicStroke((float) (w * 0.105),
+                BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+        java.awt.Shape inner = new java.awt.geom.Arc2D.Double(x + w * 0.47, y + h * 0.29,
+                w * 0.24, h * 0.42, -58, 116, java.awt.geom.Arc2D.OPEN);
+        java.awt.Shape outer = new java.awt.geom.Arc2D.Double(x + w * 0.59, y + h * 0.12,
+                w * 0.35, h * 0.76, -55, 110, java.awt.geom.Arc2D.OPEN);
+        symbol.add(new java.awt.geom.Area(waveStroke.createStrokedShape(inner)));
+        symbol.add(new java.awt.geom.Area(waveStroke.createStrokedShape(outer)));
+        fillAudioSymbol(g, symbol, enabled);
+    }
+
+    private static void fillAudioSymbol(Graphics2D g, java.awt.Shape symbol, boolean enabled) {
+        g.setColor(enabled ? Color.WHITE : withAlpha(Color.WHITE, 0.52));
+        g.fill(symbol);
+    }
+
+    private void volumeBar(Graphics2D g, Rectangle2D bar, double value, boolean enabled) {
+        g.setColor(withAlpha(Palette.BORDER_SOFT, enabled ? 0.7 : 0.32));
         g.fill(new RoundRectangle2D.Double(bar.getX(), bar.getY(), bar.getWidth(), bar.getHeight(), 14, 14));
-        g.setColor(new Color(0xFF8DB9));
-        g.fill(new RoundRectangle2D.Double(bar.getX(), bar.getY(), Math.max(6, bar.getWidth() * player.volume()),
+        g.setColor(enabled ? new Color(0xFF8DB9) : new Color(0xE7B9CD));
+        g.fill(new RoundRectangle2D.Double(bar.getX(), bar.getY(), Math.max(5, bar.getWidth() * value),
                 bar.getHeight(), 14, 14));
-        double kx = bar.getX() + bar.getWidth() * player.volume();
-        g.setColor(Color.WHITE);
-        g.fill(new java.awt.geom.Ellipse2D.Double(kx - 8, bar.getCenterY() - 8, 16, 16));
-        g.setColor(Palette.BORDER);
+        double x = bar.getX() + bar.getWidth() * value;
+        g.setColor(enabled ? Color.WHITE : new Color(0xF8EFF3));
+        g.fill(new java.awt.geom.Ellipse2D.Double(x - 8, bar.getCenterY() - 8, 16, 16));
+        g.setColor(enabled ? Palette.BORDER : withAlpha(Palette.BORDER, 0.42));
         g.setStroke(new BasicStroke(1.7f));
-        g.draw(new java.awt.geom.Ellipse2D.Double(kx - 8, bar.getCenterY() - 8, 16, 16));
+        g.draw(new java.awt.geom.Ellipse2D.Double(x - 8, bar.getCenterY() - 8, 16, 16));
     }
 
     private void arrowlessButton(Graphics2D g, Rectangle2D r, UiAction id, String glyph) {
-        double k = ui != null && ui.isPressedItem(id) ? 0.86 : ui != null && ui.isHoverItem(id) ? 1.12 : 1;
+        arrowlessButton(g, r, id, glyph, true);
+    }
+
+    private void arrowlessButton(Graphics2D g, Rectangle2D r, UiAction id, String glyph, boolean enabled) {
+        double k = enabled && ui != null && ui.isPressedItem(id) ? 0.86
+                : enabled && ui != null && ui.isHoverItem(id) ? 1.12 : 1;
         Rectangle2D rr = scaled(r, quantize(k));
-        g.setColor(new Color(0xFFE4EF));
+        g.setColor(enabled ? new Color(0xFFE4EF) : new Color(0xF6EAF0));
         g.fill(new java.awt.geom.Ellipse2D.Double(rr.getX(), rr.getY(), rr.getWidth(), rr.getHeight()));
-        g.setColor(Palette.BORDER);
+        g.setColor(enabled ? Palette.BORDER : withAlpha(Palette.BORDER, 0.38));
         g.setStroke(new BasicStroke(1.7f));
         g.draw(new java.awt.geom.Ellipse2D.Double(rr.getX(), rr.getY(), rr.getWidth(), rr.getHeight()));
-        g.setColor(Palette.INK);
+        g.setColor(enabled ? Palette.INK : withAlpha(Palette.INK, 0.38));
         double cx = rr.getCenterX();
         double cy = rr.getCenterY();
         double a = rr.getWidth() * 0.22;
@@ -1236,7 +1429,7 @@ public final class MainScene {
         if (glyph.equals("+")) {
             g.draw(new java.awt.geom.Line2D.Double(cx, cy - a, cx, cy + a));
         }
-        if (isFocused(id)) {
+        if (enabled && isFocused(id)) {
             ProceduralArt.focusRing(g, r, r.getHeight() * 0.5);
         }
     }

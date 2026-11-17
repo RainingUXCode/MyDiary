@@ -19,7 +19,9 @@ public record UiAction(Type type, String key) {
         SCROLL_HISTORY,
         /** Player musical. A chave é o caminho da faixa (PLAY/REMOVE/UP/DOWN), "+"/"-"/"set:0.55" (VOLUME) ou o deslocamento (SCROLL). */
         PLAYER_PREVIOUS, PLAYER_TOGGLE, PLAYER_NEXT, PLAYER_ADD, PLAYER_PANEL, PLAYER_PLAY, PLAYER_REMOVE,
-        PLAYER_UP, PLAYER_DOWN, PLAYER_REPEAT, PLAYER_VOLUME, PLAYER_SCROLL;
+        PLAYER_UP, PLAYER_DOWN, PLAYER_REPEAT, PLAYER_VOLUME, PLAYER_SCROLL,
+        /** Preferências independentes dos efeitos sonoros. */
+        SFX_TOGGLE, SFX_VOLUME;
 
         public boolean isPlayer() {
             return name().startsWith("PLAYER_");
@@ -40,7 +42,9 @@ public record UiAction(Type type, String key) {
         return type == Type.TOGGLE_TASK || type == Type.DELETE_TASK || type == Type.TOGGLE_OBSERVER
                 || type == Type.PLAYER_PLAY || type == Type.PLAYER_REMOVE || type == Type.PLAYER_UP
                 || type == Type.PLAYER_DOWN || type == Type.PLAYER_REPEAT
-                || (type == Type.PLAYER_VOLUME && (key.equals("+") || key.equals("-")));
+                || (type == Type.PLAYER_VOLUME && (key.equals("+") || key.equals("-")))
+                || type == Type.SFX_TOGGLE
+                || (type == Type.SFX_VOLUME && (key.equals("+") || key.equals("-")));
     }
 
     public static UiAction of(ButtonId id) {

@@ -68,6 +68,11 @@ public final class FocusRing {
             o.add(UiAction.of(UiAction.Type.PLAYER_REPEAT));
             o.add(p(UiAction.Type.PLAYER_VOLUME, "-"));
             o.add(p(UiAction.Type.PLAYER_VOLUME, "+"));
+            o.add(UiAction.of(UiAction.Type.SFX_TOGGLE));
+            if (pm.sfxEnabled()) {
+                o.add(p(UiAction.Type.SFX_VOLUME, "-"));
+                o.add(p(UiAction.Type.SFX_VOLUME, "+"));
+            }
         } else if (m.mode() == PanelMode.TASKS) {
             if (m.taskPages().current() > 0) {
                 o.add(UiAction.of(UiAction.Type.TASK_PAGE_PREVIOUS));
