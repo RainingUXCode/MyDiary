@@ -1,7 +1,7 @@
 # Observer Notes: registro de progresso
 
 > Atualizado ao final de cada etapa. Este arquivo acompanha todos os ZIPs de segurança.
-> **Última atualização: Etapa 4B concluída (14/11/2026). A Etapa 4C e o player aguardam autorização.**
+> **Última atualização: mural Little Notes e remoção da Constelação (25/11/2026).**
 
 ## 1. Visão geral
 
@@ -15,7 +15,7 @@ Regra de trabalho: etapas pequenas, cada uma com ZIP de segurança independente 
 | Etapa | Conteúdo | Estado |
 |---|---|---|
 | 1 | Projeto Maven, assets organizados, `AssetCatalog`, janela com moldura em escala | Concluída |
-| 2 | Domínio, publicador de eventos, 4 observadores, 61 testes | Concluída |
+| 2 | Domínio, publicador de eventos e observadores (hoje: 3), 61 testes originais | Concluída |
 | 3 | Persistência JSON/Gson, autosave, restauração segura, preferências dos observadores | Concluída |
 | 4A | Interface: layout, posicionamento dos PNGs, campo de texto, botões e componentes visuais (sem lógica de negócio) | **Concluída** |
 | 4B | Integração com `AppCore`: criar/concluir/excluir tarefas, toggles dos observadores, CLEAR, navegação, rodapé, avisos | **Concluída** |
@@ -33,11 +33,12 @@ Regra de trabalho: etapas pequenas, cada uma com ZIP de segurança independente 
 - 16 marcos: 3 estrelas, bronze, 3 estrelas, prata, 3 estrelas, ouro, 3 estrelas, conquista máxima. Depois: nada.
 - Só a primeira conclusão de uma tarefa pontua. Desmarcar e remarcar, excluir, cliques repetidos ou várias threads nunca pontuam de novo.
 - Pontuação é decidida no domínio **antes** de publicar eventos; falha de observador não perde ponto.
-- Observer: `SynchronousEventBus` (Subject + EventPublisher), falhas isoladas por observador. Observadores: Histórico, Contador, Constelação, Conquistas.
+- Observer: `SynchronousEventBus` (Subject + EventPublisher), falhas isoladas por observador. Observadores: Histórico, Contador e Conquistas.
 - Contador (tarefas concluídas agora) é separado do total histórico de conquistas.
 
 **Persistência (Etapa 3)**
-- `state.json` (tarefas, ledger, histórico) e `settings.json` (preferências dos observadores), na pasta de dados do usuário
+- `state.json` (tarefas, ledger, histórico), `settings.json` (preferências dos observadores) e `notes.json`
+  (até três bilhetes do Little Notes), na pasta de dados do usuário
   (`UserDataDirectory`: Windows `%APPDATA%\ObserverNotes`, macOS `~/Library/Application Support/ObserverNotes`,
   Linux `$XDG_DATA_HOME/observer-notes` ou `~/.local/share/observer-notes`; sobrescrevível por `-Dobservernotes.data.dir=...`).
 - **Fonte única de verdade das conquistas:** `achievements.scoredTaskIds` (ordenada). Marcos, estrelas e medalhas são derivados e **não** são gravados.
@@ -50,7 +51,7 @@ Regra de trabalho: etapas pequenas, cada uma com ZIP de segurança independente 
 - `AutoSavePublisher` (Decorator do publicador): grava depois que todos os observadores rodaram; `MilestoneUnlocked` não regrava (o ponto já estava no ledger).
   Falha de gravação nunca chega ao domínio; a próxima alteração tenta de novo.
 - Restaurar: domínio primeiro, depois projeções dos observadores; **nenhum evento é emitido e nenhum ponto concedido**; não grava na partida (exceto para curar após recuperar do backup).
-- `ObserverRegistry`: liga/desliga observadores (cancela/refaz inscrição, resync a partir do domínio, sem eventos). Desligar nunca altera conquistas.
+- `ObserverRegistry`: liga/desliga os três observadores (cancela/refaz inscrição, resync a partir do domínio, sem eventos). Desligar nunca altera conquistas. A antiga chave `CONSTELLATION` em `settings.json` é ignorada ao abrir.
 - `AppCore`: raiz de composição do núcleo (ainda não usada pela interface).
 
 ## 3b. Etapa 4A: interface visual (14/11/2026)
@@ -70,12 +71,12 @@ Regra de trabalho: etapas pequenas, cada uma com ZIP de segurança independente 
 - **Conquistas:** `AchievementTier` escolhe o PNG do ícone: `NONE` = roseta vazia (só quando não há conquistas), `BRONZE`/`SILVER`/`GOLD` = medalhas, `MAX` = conquista máxima.
   A 4B deve mapear o `AchievementProgress` para o tier. As estrelas 3x entre medalhas ficam para a 4C.
 - **Player:** `PLAYER_PILL` reserva o espaço dos controles (anterior/tocar-pausar/próximo) e `FOOTER_MESSAGE` o da mensagem. Os controles são **só visuais** (sem hover, sem clique, sem som); `base-rodape.png` (trilho) ainda não é usado.
-- Tela real: `NotebookCanvas` começa com `ScreenModel.empty()` (6 espaços livres, 0/0, 4 observadores ligados, "Nenhum evento ainda"). Os dados do mockup existem **só** em `test/.../tools/MockupSample`.
+- Tela real: `NotebookCanvas` começa com `ScreenModel.empty()` (6 espaços livres, 0/0, 3 observadores ligados, Little Notes vazio, "Nenhum evento ainda"). Os dados do mockup existem **só** em `test/.../tools/MockupSample`.
 
 **Prévias finais** (geradas headless por `PreviewRenderer` com os dados do mockup): `docs/previews/etapa4A-tasks.png`, `etapa4A-observers.png`, `etapa4A-history.png`, e `etapa4A-tasks-vazia-700x400.png` (estado real, janela pequena).
 
 **Fidelidade:** posições medidas no mockup; as prévias foram comparadas lado a lado e ajustadas (botões da esquerda deslocados para não cobrir as argolas, CLEAR dentro do painel, sparkle após o texto etc.).
-Diferenças conhecidas: fonte provisória (largura e arredondamento diferentes das originais); painéis desenhados em Java2D sem o recorte ondulado do topo; ícone da constelação e coração do rodapé ampliados de PNGs pequenos (≈1,6x e ≈1,7x; levemente suaves); Abajur substituído por Conquistas (decisão anterior); rodapé mostra o botão de pausa (PNG fornecido) onde o mockup tem outro ícone.
+Diferenças conhecidas daquela etapa: fonte provisória (largura e arredondamento diferentes das originais); painéis desenhados em Java2D sem o recorte ondulado do topo; o antigo ícone da constelação e o coração do rodapé eram ampliados de PNGs pequenos (≈1,6x e ≈1,7x; levemente suaves); Abajur substituído por Conquistas (decisão anterior); rodapé mostrava o botão de pausa (PNG fornecido) onde o mockup tinha outro ícone. A Constelação foi removida posteriormente; veja 3f.
 
 **Não implementado na 4A (de propósito):** criar/concluir/excluir tarefas, Enter no campo, ADD/LIST/ALERTS/RECORD/CLEAR com ação, toggles, X de excluir, navegação entre painéis, animações, som.
 Botões LIST/ALERTS/RECORD/ADD têm apenas feedback de hover/pressionado. CLEAR, toggles, X e controles do player são desenhados sem reação ao mouse (não fingem funcionar). "NOVA!" só aparece com `newAchievement`.
@@ -89,7 +90,7 @@ O app agora é uma to-do list real. Layout, assets e proporções da 4A **não m
 - `MainWindow` cria `NotebookCanvas` + `AppController`; mostra `startupMessages()` (arquivo recuperado do backup, inválido preservado como `.corrupt-...`) em uma caixa de diálogo.
   Ao fechar, grava de novo; se não conseguir, pergunta antes de fechar para não perder dados sem avisar.
 - `ui/controller/AppController`: traduz `UiAction` (clique/Enter) em chamadas ao núcleo e monta o `ScreenModel` (via `ScreenAssembler`). Só tem navegação, texto do campo e avisos.
-- `ScreenAssembler`: lista de tarefas vem do `TaskService`; contador do `CounterObserver`; estrelas da `ConstellationObserver`; histórico do `HistoryObserver`; conquistas do `AchievementObserver`.
+- `ScreenAssembler`: lista de tarefas vem do `TaskService`; contador do `CounterObserver`; histórico do `HistoryObserver`; conquistas do `AchievementObserver`; bilhetes chegam prontos do `LittleNotesService`.
 - `FooterMessages`: observador próprio da UI para a mensagem do rodapé (continua funcionando com o Histórico desligado). Na partida usa a entrada mais recente do histórico restaurado.
 - `SaveFailureTracker`: recebe os avisos de falha de gravação (estado e preferências) vindos do `AppCore`.
 - Cliques usam a **chave da tarefa (UUID) do modelo**, nunca o índice da linha: um clique antigo numa tarefa já excluída não afeta nenhuma outra. Itens agem só ao soltar sobre o mesmo item pressionado.
@@ -97,9 +98,9 @@ O app agora é uma to-do list real. Layout, assets e proporções da 4A **não m
 **Funcionalidades**
 - Campo de texto: foco, digitação, cursor, colar; limite de 60 caracteres (o mesmo do domínio). ADD ou Enter cria; título vazio é recusado com aviso; ao atingir 6 tarefas o campo mostra "Limite de 6 tarefas..." e o texto digitado não se perde.
 - Checkbox marca/desmarca, X exclui; lista e espaços livres atualizam na hora.
-- Contador (nuvem "2/4", coração "2 de 4", barra) vem do `CounterObserver`. Constelação "x de y estrelas" (acesas de existentes) vem da `ConstellationObserver`.
+- Contador (nuvem, coração e barra) vem do `CounterObserver`.
 - Conquistas: ícone por `AchievementTier` (`NONE` roseta vazia só com 0; `STARS` estrela dourada enquanto só há estrelas; bronze/prata/ouro; máxima) e texto "n de 16". Separado do contador atual.
-- ALERTS: quatro interruptores ligados ao `ObserverRegistry`; salvam `settings.json` automaticamente. Desligado, o painel mostra "desligado" (contador "–", constelação/conquistas esmaecidas, histórico "Histórico desligado") em vez de dados velhos; religar ressincroniza com o estado atual. O domínio e o ledger nunca são afetados.
+- ALERTS: três interruptores (Histórico, Contador e Conquistas) ligados ao `ObserverRegistry`; salvam `settings.json` automaticamente. Desligado, o painel mostra "desligado" em vez de dados velhos; religar ressincroniza com o estado atual. O domínio e o ledger nunca são afetados.
 - RECORD: eventos reais (mais recente primeiro; as 6 mais recentes cabem na tela); CLEAR limpa só o histórico e grava.
 - LIST/ALERTS/RECORD alternam os painéis sem perder dados. Hover/pressionado em LIST, ALERTS, RECORD, ADD e CLEAR.
 - Rodapé: última mensagem real ("21:40 · ✓ Concluída: ...", criada, desmarcada, excluída, nova conquista). Avisos de validação duram 4 s.
@@ -120,7 +121,7 @@ Isolamento: o controlador chama os efeitos dentro de `try/catch`; um efeito com 
 
 **Histórico.** O observador mantém até 200 eventos; a tela mostra 6 por vez e rola com a roda do mouse, ↑/↓, PgUp/PgDn, Home/End. Barra de rolagem só aparece com mais de 6 eventos. Rolar não grava nada; CLEAR zera a rolagem e continua funcionando.
 
-**Teclado e foco.** Tab/Shift+Tab: LIST, ALERTS, RECORD, campo, ADD, depois os itens do painel atual (tarefas: checkbox e X de cada uma; observadores: 4 interruptores; histórico: CLEAR). Anel de foco visível em cada um.
+**Teclado e foco.** Tab/Shift+Tab: LIST, ALERTS, RECORD, campo, ADD, depois os itens do painel atual (tarefas: checkbox e X de cada uma; observadores: 3 interruptores; histórico: CLEAR) e os controles do Little Notes. Anel de foco visível em cada um.
 Regras de segurança: **Enter nunca marca nem exclui tarefa**; Espaço marca/desmarca; excluir (X) e CLEAR por teclado exigem **Espaço duas vezes em até 4 s** (a primeira mostra uma dica no rodapé); com o foco no campo, as teclas só editam e Enter adiciona; Esc limpa o foco; clicar com o mouse esconde o foco de teclado.
 
 **Previews (`docs/previews/etapa4C1-*.png`):** tarefas criar/concluir/excluir, estrela 2 e 3, bronze, prata, ouro e conquista máxima (cada folha mostra vários instantes). Foram geradas por `tools/AnimationPreview` com relógio manual (sem janela).
@@ -182,6 +183,31 @@ Entrega única, sem etapa nova. Domínio, Observer, conquistas e persistência d
 
 **Limitações:** sem janela nem áudio reais neste ambiente (MP3 não testado aqui; tooltip testado só pela lógica); Maven/JUnit oficiais não executados (executor mínimo).
 
+## 3f. Little Notes e simplificação dos observadores (25/11/2026)
+
+- A antiga Constelação foi removida do domínio de observação e da interface. Antes da remoção foi
+  confirmado que pontuação e conquistas dependem exclusivamente de `AchievementLedger`,
+  `TaskService` e `AchievementObserver`; nenhuma regra de pontos foi alterada.
+- O painel ALERTS agora tem três cartões do mesmo tamanho (Histórico, Contador e Conquistas),
+  centralizados com espaçamento vertical maior. Preferências antigas que ainda contenham
+  `CONSTELLATION` são abertas normalmente: a chave desconhecida é ignorada.
+- O espaço da antiga Constelação no Resumo virou **Little Notes**: até três bilhetes rosa, amarelo e
+  lilás, desenhados em Java2D com leve rotação, sombra e fita. O estado vazio é um bilhete tracejado
+  sem cobrança. Texto dinâmico usa Cloud Soft Bold sem contorno.
+- Clique edita no próprio bilhete usando o `TextInput` existente; Enter confirma e Esc cancela.
+  Cada bilhete aceita até 60 caracteres. A exibição usa reticências quando necessário e oferece o
+  texto completo em tooltip. `×` aparece em edição, hover ou foco; `+` some ao chegar a três.
+- O mural é independente: não publica `DomainEvent`, não toca a pontuação, não cria histórico,
+  conquistas ou mensagens no rodapé. O rascunho do campo de tarefa é preservado durante a edição.
+- `notes.json` usa `FORMAT_VERSION = 1`, `JsonFileStore` e `AtomicFileWriter`, separado de
+  `state.json`. Arquivo inválido é preservado como `.corrupt-*`; backup válido é recuperado seguindo
+  a mesma estratégia do estado principal.
+- Verificação localizada: compilação Java 17 e 29 testes selecionados (repositório/backup,
+  limites 3/60, compatibilidade de settings, controlador sem eventos/pontos, foco, hit-test e
+  renderização 0/1/3) passaram. A bateria completa não foi executada.
+- Prévias localizadas são geradas por `com.observernotes.tools.LittleNotesPreview` em
+  `target/little-notes-preview/`.
+
 ## 4. Estrutura do projeto
 
 ```
@@ -195,16 +221,18 @@ observer-notes/
    │  │                Milestone, RewardType, AchievementLedger, AchievementProgress, DomainState, DomainRestorer
    │  ├─ domain/event/ DomainEvent (sealed), TaskCreated, TaskCompleted, TaskUncompleted, TaskDeleted, MilestoneUnlocked
    │  ├─ observer/     Observer, Subject, EventPublisher, Subscription, SynchronousEventBus, ObserverFailureHandler
-   │  ├─ observer/impl HistoryObserver(+HistoryEntry), CounterObserver, ConstellationObserver(+ConstellationStar), AchievementObserver
+   │  ├─ observer/impl HistoryObserver(+HistoryEntry), CounterObserver, AchievementObserver
+   │  ├─ notes/        LittleNote, NotesRepository
    │  ├─ settings/     ObserverKind, ObserverPreferences
    │  ├─ persistence/  StateRepository, SettingsRepository, AppSnapshot, LoadResult, PersistenceException,
    │  │                AtomicWriter, AtomicFileWriter, JsonFileStore, JsonFields, Migration, InvalidDataException,
-   │  │                StateJsonMapper, SettingsJsonMapper, JsonStateRepository, JsonSettingsRepository, UserDataDirectory
-   │  ├─ application/  TaskService, AutoSavePublisher, ObserverRegistry, AppCore
+   │  │                StateJsonMapper, SettingsJsonMapper, JsonStateRepository, JsonSettingsRepository,
+   │  │                JsonNotesRepository, UserDataDirectory
+   │  ├─ application/  TaskService, LittleNotesService, AutoSavePublisher, ObserverRegistry, AppCore
    │  └─ ui/           Layout, Palette, Fonts, TextPainter, MainWindow, NotebookCanvas
    │     ├─ assets/    Asset, AssetCatalog, ImageScaler, SliceSpec, SliceRenderer, SpriteCache
    │     ├─ render/    Surface
-   │     ├─ model/     ScreenModel, PanelMode, TaskRowModel, ObserverCardModel, HistoryRowModel, AchievementTier
+   │     ├─ model/     ScreenModel, LittleNotesModel, PanelMode, TaskRowModel, ObserverCardModel, HistoryRowModel, AchievementTier
    │     ├─ widget/    ButtonId, UiAction, InteractionState, TextInput
    │     ├─ controller/ AppController, ScreenAssembler, FooterMessages, SaveFailureTracker
    │     └─ scene/     MainScene, ProceduralArt
@@ -307,7 +335,7 @@ Também foi feita verificação por mutação: 15 regras quebradas de propósito
 - Fontes **Cakerolli** (textos) e **Cloud Soft** (botões/títulos, negrito com contorno) ainda sem os arquivos TTF/OTF: usar fonte provisória até o usuário enviar (ver `docs/identidade-visual.md`).
 - Resolvido na 4A: usamos as cópias limpas `card_observador_limpo.png` e `campo_texto_limpo.png`; `campo_nova_tarefa.png` (com coração) é o "espaço livre".
 - Desenhados em Java2D na 4A (autorizado): lápis, barra de progresso listrada, painéis, pílulas do player e do horário, brilhos. O PNG de play não existe: só pausa/anterior/próximo.
-- Decisões já tomadas: Abajur do mockup **substituído** pelo tile de Conquistas; constelação com 6 posições (uma por tarefa); janela em proporção ~2:1 (moldura 1397x742, 4 argolas);
+- Decisões já tomadas: Abajur do mockup **substituído** pelo tile de Conquistas; o espaço da antiga Constelação agora é o mural Little Notes; janela em proporção ~2:1 (moldura 1397x742, 4 argolas);
   Conquistas pode ser ligado/desligado (só afeta a visão; o ledger não depende dele); "NOVA!" sugerido como "adicionar música".
 
 ## 7. Próxima etapa planejada (aguarda autorização)
@@ -335,7 +363,7 @@ Também foi feita verificação por mutação: 15 regras quebradas de propósito
 1. `File → Import → Maven → Existing Maven Projects`, escolha `observer-notes/`. Java 17+. Para não misturar com seus dados reais: *Run Configurations → Arguments → VM arguments* `-Dobservernotes.data.dir=C:\temp\on-teste`.
 2. Rodar `com.observernotes.app.Main`. Esperado: 6 espaços livres, "0 de 0", roseta vazia, "Nenhum evento ainda".
 3. Clicar no campo, digitar, Enter e depois o botão ADD: tarefas criadas. Campo vazio + Enter: aviso no rodapé. Criar a 7ª: aviso de limite e o texto continua no campo.
-4. Marcar um checkbox: coração, barra e constelação sobem, aparece a estrela dourada e "1 de 16". Desmarcar/remarcar várias vezes: continua "1 de 16". Excluir com o X: conquista permanece.
+4. Marcar um checkbox: coração e barra sobem, aparece a estrela dourada e "1 de 16". Desmarcar/remarcar várias vezes: continua "1 de 16". Excluir com o X: conquista permanece.
 5. ALERTS: desligar o Contador (resumo mostra "–"), mexer nas tarefas, religar: contador atualizado. RECORD: ver eventos; CLEAR limpa só a lista.
 6. Fechar e abrir de novo: tudo igual (inclusive interruptores). Redimensionar a janela: proporção preservada.
 7. Falha de gravação (opcional): tornar a pasta de dados somente leitura e criar uma tarefa: o rodapé avisa que não salvou.

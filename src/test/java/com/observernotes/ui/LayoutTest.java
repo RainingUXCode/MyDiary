@@ -16,7 +16,7 @@ class LayoutTest {
         return List.of(Layout.LOGO, Layout.NAV_LIST, Layout.NAV_ALERTS, Layout.NAV_RECORD, Layout.TEXT_FIELD,
                 Layout.ADD, Layout.MAIN_PANEL, Layout.MAIN_RIBBON, Layout.MAIN_RIBBON_WIDE, Layout.CLEAR,
                 Layout.MAIN_BADGE, Layout.SUMMARY_PANEL, Layout.SUMMARY_RIBBON, Layout.SUMMARY_HEART,
-                Layout.SUMMARY_TEXT, Layout.PROGRESS_BAR, Layout.CONSTELLATION_TILE, Layout.CONSTELLATION_LABEL,
+                Layout.SUMMARY_TEXT, Layout.PROGRESS_BAR, Layout.NOTES_AREA, Layout.NOTES_LABEL,
                 Layout.ACHIEVEMENT_TILE, Layout.ACHIEVEMENT_LABEL, Layout.PLAYER_PILL, Layout.PLAYER_PREVIOUS,
                 Layout.PLAYER_PAUSE, Layout.PLAYER_NEXT, Layout.FOOTER_MESSAGE, Layout.NEW_BADGE,
                 Layout.FOOTER_HEART);
@@ -66,7 +66,7 @@ class LayoutTest {
 
     @Test
     void progressBarAndTilesFitInsideTheSummaryPanel() {
-        for (Rectangle2D r : List.of(Layout.SUMMARY_HEART, Layout.PROGRESS_BAR, Layout.CONSTELLATION_TILE,
+        for (Rectangle2D r : List.of(Layout.SUMMARY_HEART, Layout.PROGRESS_BAR, Layout.NOTES_AREA,
                 Layout.ACHIEVEMENT_TILE)) {
             assertTrue(Layout.SUMMARY_PANEL.contains(r));
         }

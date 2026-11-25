@@ -16,7 +16,7 @@ class ScreenModelTest {
         assertTrue(m.tasks().isEmpty());
         assertTrue(m.history().isEmpty());
         assertEquals(0, m.doneCount());
-        assertEquals(4, m.observers().size());
+        assertEquals(3, m.observers().size());
         assertTrue(m.observers().stream().allMatch(ObserverCardModel::enabled));
         assertEquals(PanelMode.TASKS, m.mode());
     }
@@ -25,20 +25,16 @@ class ScreenModelTest {
     void rejectsMoreThanSixTasks() {
         List<TaskRowModel> seven = Collections.nCopies(7, new TaskRowModel("x", false));
         assertThrows(IllegalArgumentException.class, () -> new ScreenModel(PanelMode.TASKS, seven, List.of(),
-                List.of(), 0, 6, "a", "b", com.observernotes.ui.model.AchievementTier.NONE, "", false));
-    }
-
-    @Test
-    void rejectsInconsistentStars() {
-        assertThrows(IllegalArgumentException.class, () -> new ScreenModel(PanelMode.TASKS, List.of(), List.of(),
-                List.of(), 7, 6, "a", "b", com.observernotes.ui.model.AchievementTier.NONE, "", false));
+                List.of(), LittleNotesModel.empty(), "a", "b",
+                com.observernotes.ui.model.AchievementTier.NONE, "", false));
     }
 
     @Test
     void listsAreDefensiveCopies() {
         java.util.ArrayList<TaskRowModel> src = new java.util.ArrayList<>();
         src.add(new TaskRowModel("a", true));
-        ScreenModel m = new ScreenModel(PanelMode.TASKS, src, List.of(), List.of(), 0, 6, "a", "b", com.observernotes.ui.model.AchievementTier.NONE, "", false);
+        ScreenModel m = new ScreenModel(PanelMode.TASKS, src, List.of(), List.of(), LittleNotesModel.empty(),
+                "a", "b", com.observernotes.ui.model.AchievementTier.NONE, "", false);
         src.add(new TaskRowModel("b", false));
         assertEquals(1, m.tasks().size());
         assertThrows(UnsupportedOperationException.class, () -> m.tasks().add(new TaskRowModel("c", false)));
@@ -48,13 +44,14 @@ class ScreenModelTest {
     void withModeKeepsEverythingElse() {
         ScreenModel m = ScreenModel.empty().withMode(PanelMode.HISTORY);
         assertEquals(PanelMode.HISTORY, m.mode());
-        assertEquals(4, m.observers().size());
+        assertEquals(3, m.observers().size());
     }
 
     @Test
     void doneCountCountsOnlyDone() {
         ScreenModel m = new ScreenModel(PanelMode.TASKS, List.of(new TaskRowModel("a", true),
-                new TaskRowModel("b", false), new TaskRowModel("c", true)), List.of(), List.of(), 0, 6, "a", "b", com.observernotes.ui.model.AchievementTier.NONE, "", false);
+                new TaskRowModel("b", false), new TaskRowModel("c", true)), List.of(), List.of(),
+                LittleNotesModel.empty(), "a", "b", com.observernotes.ui.model.AchievementTier.NONE, "", false);
         assertEquals(2, m.doneCount());
     }
 }

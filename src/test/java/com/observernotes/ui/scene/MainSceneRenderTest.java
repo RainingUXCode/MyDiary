@@ -9,6 +9,7 @@ import com.observernotes.ui.Layout;
 import com.observernotes.ui.NotebookCanvas;
 import com.observernotes.ui.assets.AssetCatalog;
 import com.observernotes.ui.model.PanelMode;
+import com.observernotes.ui.model.LittleNotesModel;
 import com.observernotes.ui.model.ScreenModel;
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
@@ -49,6 +50,39 @@ class MainSceneRenderTest {
             }
         }
         return n;
+    }
+
+    private static ScreenModel withNotes(ScreenModel base, LittleNotesModel notes) {
+        return new ScreenModel(base.mode(), base.tasks(), base.observers(), base.history(), notes,
+                base.achievementLabel(), base.achievementState(), base.achievementTier(), base.footerMessage(),
+                base.newAchievement(), base.views(), base.feedback(), base.historyOffset(), base.taskPages());
+    }
+
+    @Test
+    void rendersSummaryWithZeroOneAndThreeLittleNotes() {
+        ScreenModel base = MockupSample.screen(PanelMode.TASKS);
+        ScreenModel zero = withNotes(base, LittleNotesModel.empty());
+        ScreenModel one = withNotes(base, new LittleNotesModel(java.util.List.of(
+                new LittleNotesModel.Item("a", "Beber água")), ""));
+        ScreenModel three = withNotes(base, new LittleNotesModel(java.util.List.of(
+                new LittleNotesModel.Item("a", "Beber água"),
+                new LittleNotesModel.Item("b", "Ligar pra vovó"),
+                new LittleNotesModel.Item("c", "Você consegue!")), ""));
+
+        BufferedImage img0 = render(zero, 1397, 742, null);
+        BufferedImage img1 = render(one, 1397, 742, null);
+        BufferedImage img3 = render(three, 1397, 742, null);
+        int changed01 = 0;
+        int changed13 = 0;
+        var area = Layout.NOTES_AREA.createUnion(Layout.NOTES_LABEL);
+        for (int y = (int) area.getY(); y < area.getMaxY(); y++) {
+            for (int x = (int) area.getX(); x < area.getMaxX(); x++) {
+                if (img0.getRGB(x, y) != img1.getRGB(x, y)) changed01++;
+                if (img1.getRGB(x, y) != img3.getRGB(x, y)) changed13++;
+            }
+        }
+        assertTrue(changed01 > 300);
+        assertTrue(changed13 > 300);
     }
 
     @Test
@@ -141,7 +175,9 @@ class MainSceneRenderTest {
     void veryLongTitleDoesNotSpillOutsideItsRow() {
         ScreenModel m = new ScreenModel(PanelMode.TASKS,
                 java.util.List.of(new com.observernotes.ui.model.TaskRowModel("W".repeat(80), false)),
-                ScreenModel.defaultObservers(), java.util.List.of(), 0, 6, "Conquistas", "nenhuma ainda", com.observernotes.ui.model.AchievementTier.NONE, "", false);
+                ScreenModel.defaultObservers(), java.util.List.of(),
+                com.observernotes.ui.model.LittleNotesModel.empty(), "Conquistas", "nenhuma ainda",
+                com.observernotes.ui.model.AchievementTier.NONE, "", false);
         BufferedImage img = render(m, 1397, 742, null);
         BufferedImage ref = render(ScreenModel.empty(), 1397, 742, null);
         // À direita do painel central (entre painéis) nada deve ter mudado.
@@ -169,8 +205,8 @@ class MainSceneRenderTest {
         BufferedImage[] imgs = new BufferedImage[com.observernotes.ui.model.AchievementTier.values().length];
         for (var t : com.observernotes.ui.model.AchievementTier.values()) {
             ScreenModel base = MockupSample.screen(PanelMode.TASKS);
-            ScreenModel m = new ScreenModel(base.mode(), base.tasks(), base.observers(), base.history(), 2, 7,
-                    "Conquistas", "x", t, "", false);
+            ScreenModel m = new ScreenModel(base.mode(), base.tasks(), base.observers(), base.history(),
+                    base.littleNotes(), "Conquistas", "x", t, "", false);
             imgs[t.ordinal()] = render(m, 1397, 742, null);
         }
         for (int i = 0; i < imgs.length; i++) {

@@ -6,7 +6,7 @@ package com.observernotes.ui.widget;
  */
 public final class TextInput {
 
-    /** Igual ao limite de título do domínio ({@code TaskBoard.MAX_TITLE_LENGTH}). */
+    /** Limite compartilhado pelos títulos de tarefa e bilhetes do Little Notes. */
     public static final int MAX_LENGTH = 60;
 
     private final StringBuilder text = new StringBuilder();
@@ -98,5 +98,15 @@ public final class TextInput {
     public void clear() {
         text.setLength(0);
         caret = 0;
+    }
+
+    /** Substitui o conteúdo para editar outro campo com o mesmo widget. */
+    public void setText(String value) {
+        if (value == null || value.length() > MAX_LENGTH) {
+            throw new IllegalArgumentException("texto inválido para o campo");
+        }
+        text.setLength(0);
+        text.append(value);
+        caret = text.length();
     }
 }

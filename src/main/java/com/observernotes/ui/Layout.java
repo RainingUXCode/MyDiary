@@ -63,8 +63,8 @@ public final class Layout {
     public static final Rectangle2D SUMMARY_HEART = mock(1037, 232, 1208, 352);
     public static final Rectangle2D SUMMARY_TEXT = mock(1236, 255, 1385, 325);
     public static final Rectangle2D PROGRESS_BAR = mock(1037, 364, 1430, 401);
-    public static final Rectangle2D CONSTELLATION_TILE = mock(1060, 428, 1203, 556);
-    public static final Rectangle2D CONSTELLATION_LABEL = mock(1020, 564, 1245, 630);
+    public static final Rectangle2D NOTES_AREA = mock(1030, 414, 1225, 558);
+    public static final Rectangle2D NOTES_LABEL = mock(1018, 558, 1245, 630);
     public static final Rectangle2D ACHIEVEMENT_TILE = mock(1290, 428, 1390, 560);
     public static final Rectangle2D ACHIEVEMENT_LABEL = mock(1245, 564, 1440, 630);
 

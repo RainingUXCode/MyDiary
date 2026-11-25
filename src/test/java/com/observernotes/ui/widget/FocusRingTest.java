@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.observernotes.ui.model.PanelMode;
+import com.observernotes.ui.model.LittleNotesModel;
 import com.observernotes.ui.model.ScreenModel;
 import com.observernotes.ui.model.TaskRowModel;
 import java.util.ArrayList;
@@ -22,7 +23,8 @@ class FocusRingTest {
     private static ScreenModel tasks(String... ids) {
         return new ScreenModel(PanelMode.TASKS, java.util.Arrays.stream(ids)
                 .map(i -> new TaskRowModel(i, "título " + i, false)).toList(), ScreenModel.defaultObservers(),
-                List.of(), 0, 0, "Conquistas", "nenhuma ainda", com.observernotes.ui.model.AchievementTier.NONE, "", false);
+                List.of(), LittleNotesModel.empty(), "Conquistas", "nenhuma ainda",
+                com.observernotes.ui.model.AchievementTier.NONE, "", false);
     }
 
     private static UiAction toggle(String id) {
@@ -40,15 +42,17 @@ class FocusRingTest {
         assertEquals(FocusRing.FIELD, order.get(3));
         assertEquals(UiAction.Type.ADD, order.get(4).type());
         assertEquals(List.of(toggle("a"), delete("a"), toggle("b"), delete("b")), order.subList(5, 9));
-        assertEquals(9, order.size());
+        assertEquals(UiAction.Type.NOTE_ADD, order.get(9).type());
+        assertEquals(10, order.size());
     }
 
     @Test
     void orderChangesWithThePanel() {
         var obs = FocusRing.order(ScreenModel.empty().withMode(PanelMode.OBSERVERS));
-        assertEquals(4, obs.stream().filter(a -> a.type() == UiAction.Type.TOGGLE_OBSERVER).count());
+        assertEquals(3, obs.stream().filter(a -> a.type() == UiAction.Type.TOGGLE_OBSERVER).count());
         var hist = FocusRing.order(ScreenModel.empty().withMode(PanelMode.HISTORY));
-        assertEquals(UiAction.Type.CLEAR, hist.get(hist.size() - 1).type());
+        assertEquals(UiAction.Type.CLEAR, hist.get(hist.size() - 2).type());
+        assertEquals(UiAction.Type.NOTE_ADD, hist.get(hist.size() - 1).type());
         assertEquals(0, hist.stream().filter(a -> a.type() == UiAction.Type.TOGGLE_TASK).count());
     }
 
@@ -73,7 +77,7 @@ class FocusRingTest {
     void shiftTabWithoutFocusStartsAtTheLastControl() {
         ScreenModel m = tasks("a");
         ring.move(m, false);
-        assertEquals(delete("a"), ring.current());
+        assertEquals(UiAction.of(UiAction.Type.NOTE_ADD), ring.current());
     }
 
     @Test

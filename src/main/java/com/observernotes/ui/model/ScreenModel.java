@@ -11,8 +11,7 @@ import java.util.Objects;
  * @param tasks          até 6 tarefas, na ordem de exibição
  * @param observers      cartões do painel de observadores
  * @param history        linhas do histórico, da mais recente para a mais antiga
- * @param starsLit       estrelas acesas da constelação
- * @param starsTotal     total de estrelas da constelação
+ * @param littleNotes    bilhetes do mural e estado de edição
  * @param achievementTier qual PNG de conquista aparece (NONE = roseta vazia)
  * @param footerMessage  última mensagem do rodapé (vazio = nenhuma)
  * @param newAchievement mostra o selo "NOVA!"
@@ -21,7 +20,7 @@ import java.util.Objects;
  * @param historyOffset  primeira linha do histórico visível (rolagem); 0 = as mais recentes
  */
 public record ScreenModel(PanelMode mode, List<TaskRowModel> tasks, List<ObserverCardModel> observers,
-                          List<HistoryRowModel> history, int starsLit, int starsTotal,
+                          List<HistoryRowModel> history, LittleNotesModel littleNotes,
                           String achievementLabel, String achievementState, AchievementTier achievementTier,
                           String footerMessage, boolean newAchievement,
                           ObserverViews views, Feedback feedback, int historyOffset, TaskPages taskPages) {
@@ -48,7 +47,7 @@ public record ScreenModel(PanelMode mode, List<TaskRowModel> tasks, List<Observe
      * velhos; o contador vem do {@code CounterObserver}, não da lista de tarefas.
      */
     public record ObserverViews(boolean historyOn, boolean counterOn, int done, int total,
-                                boolean constellationOn, boolean achievementsOn) {
+                                boolean achievementsOn) {
         public ObserverViews {
             if (done < 0 || total < 0 || done > total) {
                 throw new IllegalArgumentException("contador inválido: " + done + "/" + total);
@@ -56,7 +55,7 @@ public record ScreenModel(PanelMode mode, List<TaskRowModel> tasks, List<Observe
         }
 
         public static ObserverViews allOn(int done, int total) {
-            return new ObserverViews(true, true, done, total, true, true);
+            return new ObserverViews(true, true, done, total, true);
         }
     }
 
@@ -82,11 +81,9 @@ public record ScreenModel(PanelMode mode, List<TaskRowModel> tasks, List<Observe
         tasks = List.copyOf(tasks);
         observers = List.copyOf(observers);
         history = List.copyOf(history);
+        Objects.requireNonNull(littleNotes, "littleNotes");
         if (tasks.size() > MAX_TASKS) {
             throw new IllegalArgumentException("máximo de " + MAX_TASKS + " tarefas");
-        }
-        if (starsTotal < 0 || starsLit < 0 || starsLit > starsTotal) {
-            throw new IllegalArgumentException("estrelas inválidas: " + starsLit + "/" + starsTotal);
         }
         Objects.requireNonNull(achievementLabel, "achievementLabel");
         Objects.requireNonNull(achievementState, "achievementState");
@@ -102,30 +99,30 @@ public record ScreenModel(PanelMode mode, List<TaskRowModel> tasks, List<Observe
 
     /** Sem rolagem (offset 0). */
     public ScreenModel(PanelMode mode, List<TaskRowModel> tasks, List<ObserverCardModel> observers,
-                       List<HistoryRowModel> history, int starsLit, int starsTotal,
+                       List<HistoryRowModel> history, LittleNotesModel littleNotes,
                        String achievementLabel, String achievementState, AchievementTier achievementTier,
                        String footerMessage, boolean newAchievement, ObserverViews views, Feedback feedback) {
-        this(mode, tasks, observers, history, starsLit, starsTotal, achievementLabel, achievementState,
+        this(mode, tasks, observers, history, littleNotes, achievementLabel, achievementState,
                 achievementTier, footerMessage, newAchievement, views, feedback, 0, TaskPages.single(tasks.size()));
     }
 
     /** Forma anterior com rolagem de histórico e uma única página de tarefas. */
     public ScreenModel(PanelMode mode, List<TaskRowModel> tasks, List<ObserverCardModel> observers,
-                       List<HistoryRowModel> history, int starsLit, int starsTotal,
+                       List<HistoryRowModel> history, LittleNotesModel littleNotes,
                        String achievementLabel, String achievementState, AchievementTier achievementTier,
                        String footerMessage, boolean newAchievement, ObserverViews views, Feedback feedback,
                        int historyOffset) {
-        this(mode, tasks, observers, history, starsLit, starsTotal, achievementLabel, achievementState,
+        this(mode, tasks, observers, history, littleNotes, achievementLabel, achievementState,
                 achievementTier, footerMessage, newAchievement, views, feedback, historyOffset,
                 TaskPages.single(tasks.size()));
     }
 
     /** Forma curta (telas de exemplo): contador derivado das tarefas, tudo ligado, sem avisos. */
     public ScreenModel(PanelMode mode, List<TaskRowModel> tasks, List<ObserverCardModel> observers,
-                       List<HistoryRowModel> history, int starsLit, int starsTotal,
+                       List<HistoryRowModel> history, LittleNotesModel littleNotes,
                        String achievementLabel, String achievementState, AchievementTier achievementTier,
                        String footerMessage, boolean newAchievement) {
-        this(mode, tasks, observers, history, starsLit, starsTotal, achievementLabel, achievementState,
+        this(mode, tasks, observers, history, littleNotes, achievementLabel, achievementState,
                 achievementTier, footerMessage, newAchievement,
                 ObserverViews.allOn((int) tasks.stream().filter(TaskRowModel::done).count(), tasks.size()),
                 Feedback.NONE, 0, TaskPages.single(tasks.size()));
@@ -133,23 +130,21 @@ public record ScreenModel(PanelMode mode, List<TaskRowModel> tasks, List<Observe
 
     /** Estado inicial: sem tarefas, sem histórico, observadores todos ligados. */
     public static ScreenModel empty() {
-        return new ScreenModel(PanelMode.TASKS, List.of(), defaultObservers(), List.of(), 0, 0,
+        return new ScreenModel(PanelMode.TASKS, List.of(), defaultObservers(), List.of(), LittleNotesModel.empty(),
                 "Conquistas", "nenhuma ainda", AchievementTier.NONE, "", false);
     }
 
-    /** Os quatro observadores do app, todos ligados (padrão de {@code ObserverPreferences}). */
+    /** Os três observadores do app, todos ligados (padrão de {@code ObserverPreferences}). */
     public static List<ObserverCardModel> defaultObservers() {
         return List.of(
                 new ObserverCardModel("HISTORY", Asset.ICON_HISTORY, "Histórico", "Registra cada evento", true),
                 new ObserverCardModel("COUNTER", Asset.ICON_COUNTER, "Contador", "Conta tarefas concluídas", true),
-                new ObserverCardModel("CONSTELLATION", Asset.ICON_CONSTELLATION, "Constelação",
-                        "Acende uma estrela por tarefa", true),
                 new ObserverCardModel("ACHIEVEMENTS", Asset.ACH_STAR_ON, "Conquistas",
                         "Premia marcos de progresso", true));
     }
 
     public ScreenModel withMode(PanelMode newMode) {
-        return new ScreenModel(newMode, tasks, observers, history, starsLit, starsTotal, achievementLabel,
+        return new ScreenModel(newMode, tasks, observers, history, littleNotes, achievementLabel,
                 achievementState, achievementTier, footerMessage, newAchievement, views, feedback,
                 Math.min(historyOffset, Math.max(0, history.size() - HISTORY_ROWS)), taskPages);
     }

@@ -11,6 +11,7 @@ public record UiAction(Type type, String key) {
     public enum Type {
         NAV_LIST, NAV_ALERTS, NAV_RECORD, ADD, CLEAR, TASK_PAGE_PREVIOUS, TASK_PAGE_NEXT,
         TOGGLE_TASK, DELETE_TASK, TOGGLE_OBSERVER, SUBMIT,
+        NOTE_ADD, NOTE_EDIT, NOTE_DELETE, NOTE_SUBMIT, NOTE_CANCEL,
         /** Só identifica o campo de texto na ordem de foco; não é um comando. */
         FOCUS_FIELD,
         /** Dica ao usuário (a chave é o texto), por exemplo "pressione de novo para excluir". */
@@ -43,6 +44,7 @@ public record UiAction(Type type, String key) {
                 || type == Type.PLAYER_PLAY || type == Type.PLAYER_REMOVE || type == Type.PLAYER_UP
                 || type == Type.PLAYER_DOWN || type == Type.PLAYER_REPEAT
                 || (type == Type.PLAYER_VOLUME && (key.equals("+") || key.equals("-")))
+                || type == Type.NOTE_EDIT || type == Type.NOTE_DELETE || type == Type.NOTE_ADD
                 || type == Type.SFX_TOGGLE
                 || (type == Type.SFX_VOLUME && (key.equals("+") || key.equals("-")));
     }

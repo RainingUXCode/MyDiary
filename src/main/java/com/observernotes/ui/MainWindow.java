@@ -1,6 +1,7 @@
 package com.observernotes.ui;
 
 import com.observernotes.application.AppCore;
+import com.observernotes.application.LittleNotesService;
 import com.observernotes.music.MusicPlayer;
 import com.observernotes.music.SupportedFormats;
 import com.observernotes.ui.controller.PlayerUi;
@@ -28,6 +29,7 @@ import javax.swing.Timer;
 public final class MainWindow extends JFrame {
 
     private final AppCore core;
+    private final LittleNotesService notes;
     private MusicPlayer music;
     private PlayerUi playerUi;
     private final SoundEffects sfx;
@@ -35,7 +37,7 @@ public final class MainWindow extends JFrame {
     private File lastMusicDir;
 
     public MainWindow(AppCore core, SaveFailureTracker failures) {
-        this(core, failures, null, SoundEffects.NONE);
+        this(core, LittleNotesService.empty(), failures, null, SoundEffects.NONE);
     }
 
     /**
@@ -43,18 +45,25 @@ public final class MainWindow extends JFrame {
      *                     {@code null} = sem player (rodapé só visual)
      */
     public MainWindow(AppCore core, SaveFailureTracker failures, Function<Runnable, MusicPlayer> musicFactory) {
-        this(core, failures, musicFactory, SoundEffects.NONE);
+        this(core, LittleNotesService.empty(), failures, musicFactory, SoundEffects.NONE);
     }
 
     public MainWindow(AppCore core, SaveFailureTracker failures, Function<Runnable, MusicPlayer> musicFactory,
                       SoundEffects soundEffects) {
+        this(core, LittleNotesService.empty(), failures, musicFactory, soundEffects);
+    }
+
+    public MainWindow(AppCore core, LittleNotesService notes, SaveFailureTracker failures,
+                      Function<Runnable, MusicPlayer> musicFactory, SoundEffects soundEffects) {
         super("Observer Notes");
         this.core = core;
+        this.notes = notes == null ? LittleNotesService.empty() : notes;
         this.sfx = soundEffects == null ? SoundEffects.NONE : soundEffects;
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         canvas = new NotebookCanvas(new AssetCatalog());
         AppController[] holder = new AppController[1];
-        AppController controller = new AppController(core, failures, canvas.input(), ZoneId.systemDefault(),
+        AppController controller = new AppController(core, this.notes, failures, canvas.input(), canvas.noteInput(),
+                ZoneId.systemDefault(),
                 () -> {
                     canvas.setModel(holder[0].model());
                     canvas.setPlayer(holder[0].playerModel());
@@ -87,6 +96,7 @@ public final class MainWindow extends JFrame {
     /** Avisos da partida (arquivo recuperado, inválido...), mostrados em português compreensível. */
     public void showStartupMessages() {
         var messages = new java.util.ArrayList<>(core.startupMessages());
+        messages.addAll(notes.startupMessages());
         messages.addAll(sfx.startupMessages());
         if (music != null && !music.startupWarning().isEmpty()) {
             messages.add(music.startupWarning());

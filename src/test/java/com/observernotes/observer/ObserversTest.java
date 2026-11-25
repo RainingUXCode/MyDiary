@@ -7,8 +7,6 @@ import com.observernotes.domain.Milestone;
 import com.observernotes.domain.RewardType;
 import com.observernotes.domain.TaskView;
 import com.observernotes.domain.event.DomainEvent;
-import com.observernotes.observer.impl.ConstellationObserver;
-import com.observernotes.observer.impl.ConstellationStar;
 import com.observernotes.observer.impl.CounterObserver;
 import com.observernotes.observer.impl.HistoryEntry;
 import com.observernotes.observer.impl.HistoryObserver;
@@ -106,25 +104,6 @@ class ObserversTest {
         assertEquals(5, f.achievements.progress().totalScored());
     }
 
-    // ---- Constelação -------------------------------------------------------------
-
-    @Test
-    @DisplayName("Constelação tem uma estrela por tarefa, acesa quando concluída")
-    void constellationStars() {
-        TaskView a = f.create("a");
-        TaskView b = f.create("b");
-        f.service.complete(b.id());
-        List<ConstellationStar> stars = f.constellation.stars();
-        assertEquals(2, stars.size());
-        assertEquals(a.id(), stars.get(0).taskId());
-        assertFalse(stars.get(0).lit());
-        assertTrue(stars.get(1).lit());
-        f.service.uncomplete(b.id());
-        assertEquals(0, f.constellation.litCount());
-        f.service.delete(a.id());
-        assertEquals(1, f.constellation.starCount());
-    }
-
     // ---- Conquistas --------------------------------------------------------------
 
     @Test
@@ -188,10 +167,7 @@ class ObserversTest {
         f.create("b");
         f.service.complete(a.id());
         CounterObserver late = new CounterObserver(f.service.tasks());
-        ConstellationObserver lateStars = new ConstellationObserver(f.service.tasks());
         assertEquals("1 de 2", late.label());
-        assertEquals(1, lateStars.litCount());
-        assertEquals(2, lateStars.starCount());
     }
 
     @Test
@@ -204,7 +180,6 @@ class ObserversTest {
         f.service.complete(b.id());
         f.service.complete(a.id());
         assertEquals("2 de 4", f.counter.label());
-        assertEquals(2, f.constellation.litCount());
         assertEquals(2, f.achievements.progress().starsEarned());
         assertEquals(2, f.achievements.progress().starsInCurrentTier());
         assertEquals(HistoryEntry.Kind.COMPLETED, f.history.entries().get(0).kind());

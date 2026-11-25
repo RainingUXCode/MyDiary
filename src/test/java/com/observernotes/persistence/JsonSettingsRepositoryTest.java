@@ -67,6 +67,18 @@ class JsonSettingsRepositoryTest {
     }
 
     @Test
+    @DisplayName("settings antigos com CONSTELLATION continuam abrindo e ignoram a chave removida")
+    void legacyConstellationKeyIsIgnored() throws IOException {
+        TempFiles.write(repo.file(), "{\"formatVersion\":1,\"observers\":{"
+                + "\"HISTORY\":false,\"CONSTELLATION\":false,\"COUNTER\":true,\"ACHIEVEMENTS\":true}}");
+        LoadResult<ObserverPreferences> loaded = repo.load();
+        assertEquals(LoadResult.Status.LOADED, loaded.status());
+        assertFalse(loaded.value().isEnabled(ObserverKind.HISTORY));
+        assertTrue(loaded.value().isEnabled(ObserverKind.COUNTER));
+        assertTrue(loaded.value().isEnabled(ObserverKind.ACHIEVEMENTS));
+    }
+
+    @Test
     @DisplayName("arquivo corrompido volta aos padrões e é preservado")
     void corruptFile() throws IOException {
         TempFiles.write(repo.file(), "{{{");

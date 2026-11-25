@@ -6,13 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.observernotes.tools.MockupSample;
 import com.observernotes.ui.model.PanelMode;
+import com.observernotes.ui.model.LittleNotesModel;
+import com.observernotes.ui.model.ScreenModel;
 import com.observernotes.ui.scene.MainScene;
 import java.awt.Font;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import org.junit.jupiter.api.Test;
 
-/** Reticências no rodapé e nos títulos de tarefas, e o texto completo do tooltip. */
+/** Reticências no rodapé, tarefas e bilhetes, e o texto completo do tooltip. */
 class TextEllipsisTest {
 
     private static java.awt.Graphics2D g() {
@@ -60,5 +62,19 @@ class TextEllipsisTest {
             assertEquals(m.tasks().get(0).title(), t);
         }
         assertEquals(null, MainScene.truncatedTaskTitleAt(g, Fonts.load(), new Point2D.Double(5, 5), m));
+    }
+
+    @Test
+    void longLittleNoteOffersItsCompleteTextForTheTooltip() {
+        var g = g();
+        var base = MockupSample.screen(PanelMode.TASKS);
+        String longText = "Preparar apresentação com gráficos, referências e revisão final";
+        var notes = new LittleNotesModel(java.util.List.of(new LittleNotesModel.Item("n", longText)), "");
+        var m = new ScreenModel(base.mode(), base.tasks(), base.observers(), base.history(), notes,
+                base.achievementLabel(), base.achievementState(), base.achievementTier(), base.footerMessage(),
+                base.newAchievement(), base.views(), base.feedback(), base.historyOffset(), base.taskPages());
+        Point2D inside = new Point2D.Double(MainScene.noteRect(0).getCenterX(), MainScene.noteRect(0).getCenterY());
+        assertEquals(longText, MainScene.truncatedNoteTextAt(g, Fonts.load(), inside, m));
+        assertEquals(null, MainScene.truncatedNoteTextAt(g, Fonts.load(), new Point2D.Double(5, 5), m));
     }
 }

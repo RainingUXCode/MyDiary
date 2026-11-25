@@ -9,6 +9,7 @@ import com.observernotes.observer.impl.HistoryEntry;
 import com.observernotes.settings.ObserverKind;
 import com.observernotes.ui.model.AchievementTier;
 import com.observernotes.ui.model.HistoryRowModel;
+import com.observernotes.ui.model.LittleNotesModel;
 import com.observernotes.ui.model.ObserverCardModel;
 import com.observernotes.ui.model.PanelMode;
 import com.observernotes.ui.model.ScreenModel;
@@ -41,10 +42,15 @@ public final class ScreenAssembler {
 
     public static ScreenModel assemble(AppCore app, PanelMode mode, ScreenModel.Feedback feedback, String footer,
                                        ZoneId zone, int historyOffset, int requestedTaskPage) {
+        return assemble(app, LittleNotesModel.empty(), mode, feedback, footer, zone, historyOffset, requestedTaskPage);
+    }
+
+    public static ScreenModel assemble(AppCore app, LittleNotesModel littleNotes, PanelMode mode,
+                                       ScreenModel.Feedback feedback, String footer, ZoneId zone,
+                                       int historyOffset, int requestedTaskPage) {
         var registry = app.observers();
         boolean historyOn = registry.isEnabled(ObserverKind.HISTORY);
         boolean counterOn = registry.isEnabled(ObserverKind.COUNTER);
-        boolean constellationOn = registry.isEnabled(ObserverKind.CONSTELLATION);
         boolean achievementsOn = registry.isEnabled(ObserverKind.ACHIEVEMENTS);
 
         List<TaskView> allTasks = app.service().tasks();
@@ -68,12 +74,10 @@ public final class ScreenAssembler {
 
         int done = app.counter().completedCount();
         int total = app.counter().taskCount();
-        int lit = app.constellation().litCount();
-        int stars = app.constellation().starCount();
         AchievementProgress progress = app.achievements().progress();
 
-        var views = new ScreenModel.ObserverViews(historyOn, counterOn, done, total, constellationOn, achievementsOn);
-        return new ScreenModel(mode, tasks, cards(app), history, lit, stars, "Conquistas", achievementText(progress),
+        var views = new ScreenModel.ObserverViews(historyOn, counterOn, done, total, achievementsOn);
+        return new ScreenModel(mode, tasks, cards(app), history, littleNotes, "Conquistas", achievementText(progress),
                 tier(progress), footer, false, views, feedback, historyOffset,
                 new ScreenModel.TaskPages(taskPage, pageCount, allTasks.size()));
     }

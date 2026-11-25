@@ -9,7 +9,6 @@ import com.observernotes.domain.TaskView;
 import com.observernotes.domain.event.DomainEvent;
 import com.observernotes.observer.SynchronousEventBus;
 import com.observernotes.observer.impl.AchievementObserver;
-import com.observernotes.observer.impl.ConstellationObserver;
 import com.observernotes.observer.impl.CounterObserver;
 import com.observernotes.observer.impl.HistoryObserver;
 import com.observernotes.settings.ObserverKind;
@@ -29,7 +28,6 @@ class ObserverRegistryTest {
     private TaskService service;
     private HistoryObserver history;
     private CounterObserver counter;
-    private ConstellationObserver constellation;
     private AchievementObserver achievements;
 
     @BeforeEach
@@ -39,12 +37,11 @@ class ObserverRegistryTest {
         bus.subscribe(events::add);
         history = new HistoryObserver();
         counter = new CounterObserver();
-        constellation = new ConstellationObserver();
         achievements = new AchievementObserver();
     }
 
     private ObserverRegistry registry(ObserverPreferences initial) {
-        return new ObserverRegistry(bus, service, history, counter, constellation, achievements,
+        return new ObserverRegistry(bus, service, history, counter, achievements,
                 initial, changes::add);
     }
 
@@ -54,7 +51,6 @@ class ObserverRegistryTest {
         registry(ObserverPreferences.allEnabled().with(ObserverKind.COUNTER, false));
         service.createTask("a");
         assertEquals(0, counter.taskCount());
-        assertEquals(1, constellation.starCount());
         assertEquals(1, history.entries().size());
     }
 
@@ -67,7 +63,7 @@ class ObserverRegistryTest {
         service.createTask("b");
         service.complete(a.id());
         assertEquals("0 de 1", counter.label());          // congelado
-        assertEquals(1, constellation.litCount());        // os outros seguem atualizando
+        assertEquals(1, achievements.progress().totalScored()); // os outros seguem atualizando
 
         r.setEnabled(ObserverKind.COUNTER, true);
         assertEquals("1 de 2", counter.label());          // ressincronizado

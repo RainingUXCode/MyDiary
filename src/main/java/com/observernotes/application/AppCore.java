@@ -5,7 +5,6 @@ import com.observernotes.domain.event.DomainEvent;
 import com.observernotes.observer.ObserverFailureHandler;
 import com.observernotes.observer.SynchronousEventBus;
 import com.observernotes.observer.impl.AchievementObserver;
-import com.observernotes.observer.impl.ConstellationObserver;
 import com.observernotes.observer.impl.CounterObserver;
 import com.observernotes.observer.impl.HistoryObserver;
 import com.observernotes.persistence.AppSnapshot;
@@ -37,7 +36,6 @@ public final class AppCore {
     private final ObserverRegistry registry;
     private final HistoryObserver history = new HistoryObserver();
     private final CounterObserver counter = new CounterObserver();
-    private final ConstellationObserver constellation = new ConstellationObserver();
     private final AchievementObserver achievements = new AchievementObserver();
     private final List<String> startupMessages = new ArrayList<>();
     private final LoadResult.Status stateStatus;
@@ -63,7 +61,7 @@ public final class AppCore {
         this.service = new TaskService(restored.board(), restored.ledger(), autoSave, clock);
 
         // 3) Projeções refeitas a partir do domínio e observadores ativos inscritos.
-        this.registry = new ObserverRegistry(bus, service, history, counter, constellation, achievements,
+        this.registry = new ObserverRegistry(bus, service, history, counter, achievements,
                 loadedPrefs.value(), prefs -> saveSettings(settingsRepository, prefs, onSaveFailure));
 
         // 4) Se os dados vieram de um backup, regrava o arquivo principal para "curá-lo".
@@ -141,10 +139,6 @@ public final class AppCore {
 
     public CounterObserver counter() {
         return counter;
-    }
-
-    public ConstellationObserver constellation() {
-        return constellation;
     }
 
     public AchievementObserver achievements() {

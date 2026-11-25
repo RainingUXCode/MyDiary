@@ -29,7 +29,7 @@ public final class Main {
                 } catch (RuntimeException ignored) {
                     // a playlist padrão é um extra: o app abre mesmo assim
                 }
-                MainWindow window = new MainWindow(started.core(), started.failures(),
+                MainWindow window = new MainWindow(started.core(), started.notes(), started.failures(),
                         onChange -> new MusicPlayer(new JavaSoundBackend(), new JsonPlaylistStore(dir), onChange),
                         new SfxService(new ClasspathSfxAudio(), new JsonSfxSettingsRepository(dir)));
                 window.setVisible(true);

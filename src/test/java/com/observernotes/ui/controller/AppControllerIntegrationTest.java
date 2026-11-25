@@ -53,6 +53,31 @@ class AppControllerIntegrationTest {
     }
 
     @Test
+    void littleNotesPersistSeparatelyWithoutCreatingHistoryOrPoints() {
+        int historyBefore = w.core.history().entries().size();
+        int pointsBefore = w.core.service().achievements().totalScored();
+        String taskDraft = "rascunho de tarefa";
+        w.type(taskDraft);
+        w.controller.handle(UiAction.of(UiAction.Type.NOTE_ADD));
+        assertEquals(taskDraft, w.input.text());
+        assertTrue(w.noteInput.isEmpty());
+        w.noteInput.paste("Beber água");
+        assertEquals(taskDraft, w.input.text());
+        w.controller.handle(UiAction.of(UiAction.Type.NOTE_SUBMIT));
+
+        assertEquals(1, w.model().littleNotes().items().size());
+        assertEquals("Beber água", w.model().littleNotes().items().get(0).text());
+        assertEquals(taskDraft, w.input.text());
+        assertTrue(w.noteInput.isEmpty());
+        assertEquals(historyBefore, w.core.history().entries().size());
+        assertEquals(pointsBefore, w.core.service().achievements().totalScored());
+
+        w.restart();
+        assertEquals("Beber água", w.model().littleNotes().items().get(0).text());
+        assertTrue(w.model().tasks().isEmpty());
+    }
+
+    @Test
     void enterKeyCreatesTheTaskToo() {
         w.type("  Escrever o README  ");
         w.controller.handle(UiAction.of(UiAction.Type.SUBMIT));
@@ -113,8 +138,6 @@ class AppControllerIntegrationTest {
         assertTrue(m.tasks().get(0).done());
         assertEquals(1, m.views().done());
         assertEquals(2, m.views().total());
-        assertEquals(1, m.starsLit());
-        assertEquals(2, m.starsTotal());
         assertEquals(AchievementTier.STARS, m.achievementTier());
         assertEquals("1 de 16", m.achievementState());
         assertTrue(m.footerMessage().contains("Nova conquista: estrela"));
@@ -212,7 +235,6 @@ class AppControllerIntegrationTest {
         ScreenModel m = w.model();
         assertTrue(m.tasks().get(0).done());
         assertEquals(1, m.views().done());
-        assertEquals(1, m.starsLit());
         assertEquals("1 de 16", m.achievementState());
         assertTrue(m.footerMessage().contains("Concluída: a"));   // vem do histórico restaurado
         assertEquals(1, w.core.service().achievements().totalScored());
@@ -274,7 +296,7 @@ class AppControllerIntegrationTest {
     void disablingAnyObserverNeverChangesAchievementsOrTasks() {
         w.add("a");
         w.toggle(0);
-        for (String k : new String[] {"HISTORY", "COUNTER", "CONSTELLATION", "ACHIEVEMENTS"}) {
+        for (String k : new String[] {"HISTORY", "COUNTER", "ACHIEVEMENTS"}) {
             w.flipObserver(k);
         }
         assertEquals(1, w.core.service().achievements().totalScored());
@@ -282,7 +304,7 @@ class AppControllerIntegrationTest {
         w.toggle(0);
         w.toggle(0);                                       // com tudo desligado
         assertEquals(1, w.core.service().achievements().totalScored());
-        for (String k : new String[] {"HISTORY", "COUNTER", "CONSTELLATION", "ACHIEVEMENTS"}) {
+        for (String k : new String[] {"HISTORY", "COUNTER", "ACHIEVEMENTS"}) {
             w.flipObserver(k);
         }
         assertEquals("1 de 16", w.model().achievementState());
@@ -301,10 +323,8 @@ class AppControllerIntegrationTest {
 
     @Test
     void observerPreferencesAreSavedAndRestored() {
-        w.flipObserver("CONSTELLATION");
         w.flipObserver("HISTORY");
         w.restart();
-        assertFalse(w.model().views().constellationOn());
         assertFalse(w.model().views().historyOn());
         assertTrue(w.model().views().counterOn());
         assertFalse(w.model().observers().get(0).enabled());

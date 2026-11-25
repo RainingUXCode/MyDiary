@@ -80,7 +80,7 @@ public final class FooterPreview {
                         new TaskRowModel("2", "Preparar a apresentação de conclusão do semestre com todos os gráficos e referências", false),
                         new TaskRowModel("3", "Revisão ortográfica: ação, coração, órgão, avó, pé, três, ônibus, você", true),
                         new TaskRowModel("4", "Entregar o relatório final de Engenharia de Software ao professor orientador amanhã cedo", true)),
-                s.observers(), s.history(), s.starsLit(), s.starsTotal(), s.achievementLabel(), s.achievementState(),
+                s.observers(), s.history(), s.littleNotes(), s.achievementLabel(), s.achievementState(),
                 s.achievementTier(), s.footerMessage(), s.newAchievement());
         c.setModel(longTasks);
         c.setPlayer(model(TITLES, 0, false, false, 0));

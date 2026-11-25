@@ -41,7 +41,8 @@ class EndToEndTest {
         canvas = new NotebookCanvas(new AssetCatalog());
         canvas.setSize(w, h);
         AppController[] holder = new AppController[1];
-        controller = new AppController(started.core(), started.failures(), canvas.input(), ZoneOffset.UTC,
+        controller = new AppController(started.core(), started.notes(), started.failures(), canvas.input(),
+                canvas.noteInput(), ZoneOffset.UTC,
                 () -> canvas.setModel(holder[0].model()), (t, ms) -> { });
         holder[0] = controller;
         canvas.setActionListener(controller::handle);
@@ -84,6 +85,33 @@ class EndToEndTest {
         for (var l : canvas.getKeyListeners()) {
             l.keyPressed(new KeyEvent(canvas, KeyEvent.KEY_PRESSED, 0, 0, KeyEvent.VK_ENTER, '\n'));
         }
+    }
+
+    @Test
+    void noteTypingIsContextualAndNeverUsesTheTaskField() {
+        launch(1397, 742);
+        canvas.input().paste("rascunho da tarefa");
+
+        click(MainScene.noteAddRect(canvas.model().littleNotes()));
+        assertTrue(canvas.model().littleNotes().adding());
+        assertTrue(canvas.noteInput().focused());
+        typeText("Beber água");
+        assertEquals("Beber água", canvas.noteInput().text());
+        assertEquals("rascunho da tarefa", canvas.input().text());
+
+        enter();
+        assertEquals("Beber água", canvas.model().littleNotes().items().get(0).text());
+        assertEquals("rascunho da tarefa", canvas.input().text());
+        assertTrue(canvas.noteInput().isEmpty());
+
+        click(MainScene.noteRect(0));
+        typeText("!");
+        for (var l : canvas.getKeyListeners()) {
+            l.keyPressed(new KeyEvent(canvas, KeyEvent.KEY_PRESSED, 0, 0, KeyEvent.VK_ESCAPE, (char) 27));
+        }
+        assertEquals("Beber água", canvas.model().littleNotes().items().get(0).text());
+        assertEquals("rascunho da tarefa", canvas.input().text());
+        assertTrue(canvas.noteInput().isEmpty());
     }
 
     @Test

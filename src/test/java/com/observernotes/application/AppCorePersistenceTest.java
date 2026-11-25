@@ -137,7 +137,7 @@ class AppCorePersistenceTest {
     }
 
     @Test
-    @DisplayName("reiniciar preserva conquistas, estrelas e as projeções de todos os observadores")
+    @DisplayName("reiniciar preserva conquistas e as projeções dos observadores")
     void restartPreservesAchievementsAndProjections() {
         AppCore first = open();
         for (int i = 0; i < 3; i++) {
@@ -147,7 +147,6 @@ class AppCorePersistenceTest {
         assertEquals(3, second.service().achievements().totalScored());
         assertEquals(3, second.achievements().progress().totalScored());
         assertEquals(3, second.achievements().progress().starsInCurrentTier());
-        assertEquals(3, second.constellation().litCount());
         assertEquals("3 de 3", second.counter().label());
         assertEquals(first.history().entries(), second.history().entries());
         assertEquals(6, second.history().entries().size());
@@ -258,13 +257,11 @@ class AppCorePersistenceTest {
         AppCore second = open();
         assertFalse(second.observers().isEnabled(ObserverKind.COUNTER));
         assertFalse(second.observers().isEnabled(ObserverKind.HISTORY));
-        assertTrue(second.observers().isEnabled(ObserverKind.CONSTELLATION));
         assertTrue(second.observers().isEnabled(ObserverKind.ACHIEVEMENTS));
 
         second.service().createTask("a");
         assertEquals(0, second.counter().taskCount());
         assertEquals(0, second.history().entries().size());
-        assertEquals(1, second.constellation().starCount());
     }
 
     @Test

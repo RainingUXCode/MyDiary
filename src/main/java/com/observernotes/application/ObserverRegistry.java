@@ -5,7 +5,6 @@ import com.observernotes.observer.Observer;
 import com.observernotes.observer.Subject;
 import com.observernotes.observer.Subscription;
 import com.observernotes.observer.impl.AchievementObserver;
-import com.observernotes.observer.impl.ConstellationObserver;
 import com.observernotes.observer.impl.CounterObserver;
 import com.observernotes.observer.impl.HistoryObserver;
 import com.observernotes.settings.ObserverKind;
@@ -26,24 +25,21 @@ public final class ObserverRegistry {
     private final Map<ObserverKind, Observer<DomainEvent>> observers = new EnumMap<>(ObserverKind.class);
     private final Map<ObserverKind, Subscription> subscriptions = new EnumMap<>(ObserverKind.class);
     private final CounterObserver counter;
-    private final ConstellationObserver constellation;
     private final AchievementObserver achievements;
     private final Consumer<ObserverPreferences> onChange;
     private volatile ObserverPreferences preferences;
 
     public ObserverRegistry(Subject<DomainEvent> bus, TaskService service,
                             HistoryObserver history, CounterObserver counter,
-                            ConstellationObserver constellation, AchievementObserver achievements,
+                            AchievementObserver achievements,
                             ObserverPreferences initial, Consumer<ObserverPreferences> onChange) {
         this.bus = bus;
         this.service = service;
         this.counter = counter;
-        this.constellation = constellation;
         this.achievements = achievements;
         this.onChange = onChange;
         observers.put(ObserverKind.HISTORY, history);
         observers.put(ObserverKind.COUNTER, counter);
-        observers.put(ObserverKind.CONSTELLATION, constellation);
         observers.put(ObserverKind.ACHIEVEMENTS, achievements);
         for (ObserverKind kind : ObserverKind.values()) {
             if (initial.isEnabled(kind)) {
@@ -89,7 +85,6 @@ public final class ObserverRegistry {
         switch (kind) {
             case HISTORY -> { /* o histórico é um registro de eventos: não há o que refazer */ }
             case COUNTER -> counter.resync(service.tasks());
-            case CONSTELLATION -> constellation.resync(service.tasks());
             case ACHIEVEMENTS -> achievements.resync(service.achievements());
         }
         subscriptions.put(kind, bus.subscribe(observers.get(kind)));

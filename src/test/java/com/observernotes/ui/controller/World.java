@@ -1,6 +1,8 @@
 package com.observernotes.ui.controller;
 
 import com.observernotes.application.AppCore;
+import com.observernotes.application.LittleNotesService;
+import com.observernotes.persistence.JsonNotesRepository;
 import com.observernotes.persistence.JsonSettingsRepository;
 import com.observernotes.persistence.JsonStateRepository;
 import com.observernotes.persistence.LoadResult;
@@ -54,7 +56,9 @@ final class World {
     FlakySettings settings;
     SaveFailureTracker tracker;
     AppCore core;
+    LittleNotesService notes;
     TextInput input;
+    TextInput noteInput;
     AppController controller;
     int repaints;
     EffectSink sink = EffectSink.NONE;
@@ -80,9 +84,11 @@ final class World {
         state = new SpyStateRepository(new JsonStateRepository(dir));
         settings = new FlakySettings(new JsonSettingsRepository(dir));
         core = AppCore.start(state, settings, clock, tracker);
+        notes = new LittleNotesService(new JsonNotesRepository(dir));
         input = new TextInput();
+        noteInput = new TextInput();
         scheduled.clear();
-        controller = new AppController(core, tracker, input, ZoneOffset.UTC, () -> repaints++,
+        controller = new AppController(core, notes, tracker, input, noteInput, ZoneOffset.UTC, () -> repaints++,
                 (task, ms) -> scheduled.add(task), sink, sounds);
     }
 

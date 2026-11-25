@@ -46,6 +46,7 @@ public final class NotebookCanvas extends JPanel {
     private final Fonts fonts;
     private final MainScene scene;
     private final TextInput input = new TextInput();
+    private final TextInput noteInput = new TextInput();
     private final InteractionState interaction = new InteractionState();
     private final Timer caretTimer;
     private final Timer frameTimer;
@@ -95,7 +96,7 @@ public final class NotebookCanvas extends JPanel {
         });
 
         caretTimer = new Timer(530, e -> {
-            if (input.focused()) {
+            if (input.focused() || noteInput.focused()) {
                 caretVisible = !caretVisible;
                 repaint();
             }
@@ -118,9 +119,15 @@ public final class NotebookCanvas extends JPanel {
                 requestFocusInWindow();
                 Point2D p = toLogical(e.getX(), e.getY());
                 updateHoveredTask(p);
-                boolean field = MainScene.overTextField(p);
-                focus.set(field ? FocusRing.FIELD : null);        // clique esconde o foco de teclado
-                boolean changed = setInputFocus(field);
+                UiAction pointed = MainScene.actionAt(p, model, player);
+                boolean noteField = pointed != null
+                        && (pointed.type() == UiAction.Type.NOTE_EDIT || pointed.type() == UiAction.Type.NOTE_ADD);
+                if (model.littleNotes().editing() && !noteField
+                        && (pointed == null || pointed.type() != UiAction.Type.NOTE_DELETE)) {
+                    actionListener.accept(UiAction.of(UiAction.Type.NOTE_CANCEL));
+                }
+                focus.set(MainScene.overTextField(p) ? FocusRing.FIELD : null); // clique esconde foco de teclado
+                boolean changed = setInputFocus(MainScene.overTextField(p), noteField);
                 ButtonId id = MainScene.hitTest(p, model, player);
                 changed |= interaction.setHover(id);
                 if (id != null) {
@@ -169,9 +176,11 @@ public final class NotebookCanvas extends JPanel {
                 Point2D p = toLogical(e.getX(), e.getY());
                 updateHoveredTask(p);
                 ButtonId id = MainScene.hitTest(p, model, player);
-                setCursor(Cursor.getPredefinedCursor(MainScene.overClickable(p, model, player) ? Cursor.HAND_CURSOR
-                        : MainScene.overTextField(p) ? Cursor.TEXT_CURSOR : Cursor.DEFAULT_CURSOR));
                 UiAction a = MainScene.actionAt(p, model, player);
+                boolean noteText = a != null
+                        && (a.type() == UiAction.Type.NOTE_EDIT || a.type() == UiAction.Type.NOTE_ADD);
+                setCursor(Cursor.getPredefinedCursor(noteText || MainScene.overTextField(p) ? Cursor.TEXT_CURSOR
+                        : MainScene.overClickable(p, model, player) ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
                 setToolTipText(truncatedTitleTooltip(p));
                 boolean changed = interaction.setHover(id);
                 changed |= interaction.setHoverItem(a != null && a.isItem() ? a : null);
@@ -208,7 +217,8 @@ public final class NotebookCanvas extends JPanel {
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyTyped(KeyEvent e) {
-                if (input.focused() && !e.isControlDown() && !e.isMetaDown() && input.type(e.getKeyChar())) {
+                TextInput target = focusedInput();
+                if (target != null && !e.isControlDown() && !e.isMetaDown() && target.type(e.getKeyChar())) {
                     edited();
                 }
             }
@@ -234,26 +244,37 @@ public final class NotebookCanvas extends JPanel {
      */
     void handleKey(int code, boolean shift, boolean command) {
         if (code == KeyEvent.VK_TAB) {
+            if (model.littleNotes().editing()) {
+                actionListener.accept(UiAction.of(UiAction.Type.NOTE_CANCEL));
+            }
             focus.move(model, !shift);
-            setInputFocus(focus.isField());
+            setInputFocus(focus.isField(), false);
             repaint();
             return;
         }
-        if (focus.isField()) {
+        TextInput target = focusedInput();
+        if (target != null) {
+            boolean noteEditing = noteInput.focused() && model.littleNotes().editing();
             boolean changed = switch (code) {
-                case KeyEvent.VK_BACK_SPACE -> input.backspace();
-                case KeyEvent.VK_DELETE -> input.delete();
-                case KeyEvent.VK_LEFT -> input.left();
-                case KeyEvent.VK_RIGHT -> input.right();
-                case KeyEvent.VK_HOME -> input.home();
-                case KeyEvent.VK_END -> input.end();
+                case KeyEvent.VK_BACK_SPACE -> target.backspace();
+                case KeyEvent.VK_DELETE -> target.delete();
+                case KeyEvent.VK_LEFT -> target.left();
+                case KeyEvent.VK_RIGHT -> target.right();
+                case KeyEvent.VK_HOME -> target.home();
+                case KeyEvent.VK_END -> target.end();
                 case KeyEvent.VK_ESCAPE -> {
+                    if (noteEditing) {
+                        actionListener.accept(UiAction.of(UiAction.Type.NOTE_CANCEL));
+                    }
                     focus.clear();
-                    setInputFocus(false);
+                    setInputFocus(false, false);
                     yield true;
                 }
                 case KeyEvent.VK_ENTER -> {
-                    actionListener.accept(UiAction.of(UiAction.Type.SUBMIT));
+                    actionListener.accept(UiAction.of(noteEditing ? UiAction.Type.NOTE_SUBMIT : UiAction.Type.SUBMIT));
+                    if (noteEditing) {
+                        setInputFocus(false, false);
+                    }
                     yield true;
                 }
                 case KeyEvent.VK_V -> command && pasteFromClipboard();
@@ -270,6 +291,10 @@ public final class NotebookCanvas extends JPanel {
                         hint -> actionListener.accept(new UiAction(UiAction.Type.HINT, hint)));
                 if (!result.isNone()) {
                     actionListener.accept(result.action());
+                    if (result.action().type() == UiAction.Type.NOTE_EDIT
+                            || result.action().type() == UiAction.Type.NOTE_ADD) {
+                        setInputFocus(false, true);
+                    }
                 }
             }
             case KeyEvent.VK_ESCAPE -> {
@@ -325,7 +350,10 @@ public final class NotebookCanvas extends JPanel {
         Graphics2D g = metricsImage.createGraphics();
         try {
             g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            String full = MainScene.truncatedTaskTitleAt(g, fonts, logical, model);
+            String full = MainScene.truncatedNoteTextAt(g, fonts, logical, model);
+            if (full == null) {
+                full = MainScene.truncatedTaskTitleAt(g, fonts, logical, model);
+            }
             if (full == null) {
                 return null;
             }
@@ -381,6 +409,11 @@ public final class NotebookCanvas extends JPanel {
         return input;
     }
 
+    /** Entrada contextual exclusiva do Little Notes; nunca é desenhada no campo de tarefas. */
+    public TextInput noteInput() {
+        return noteInput;
+    }
+
     /**
      * Recebe as ações do usuário (clique completo em botão ou item, e Enter no campo).
      * Sem ouvinte, nada acontece.
@@ -402,18 +435,21 @@ public final class NotebookCanvas extends JPanel {
         return new Point2D.Double((x - offX) / s, (y - offY) / s);
     }
 
-    private boolean setInputFocus(boolean focus) {
-        if (input.focused() == focus) {
-            return false;
-        }
-        input.setFocused(focus);
+    private boolean setInputFocus(boolean taskFocus, boolean noteFocus) {
+        boolean changed = input.focused() != taskFocus || noteInput.focused() != noteFocus;
+        input.setFocused(taskFocus);
+        noteInput.setFocused(noteFocus);
         caretVisible = true;
-        if (focus) {
+        if (taskFocus || noteFocus) {
             caretTimer.start();
         } else {
             caretTimer.stop();
         }
-        return true;
+        return changed;
+    }
+
+    private TextInput focusedInput() {
+        return noteInput.focused() ? noteInput : input.focused() ? input : null;
     }
 
     private void edited() {
@@ -426,7 +462,8 @@ public final class NotebookCanvas extends JPanel {
         try {
             var clip = getToolkit().getSystemClipboard();
             if (clip.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
-                return input.paste((String) clip.getData(DataFlavor.stringFlavor));
+                TextInput target = focusedInput();
+                return target != null && target.paste((String) clip.getData(DataFlavor.stringFlavor));
             }
         } catch (Exception ignored) {
             // área de transferência indisponível: simplesmente não cola
@@ -472,7 +509,8 @@ public final class NotebookCanvas extends JPanel {
         if ((footer.animating(effects.now()) || player.playing()) && !frameTimer.isRunning()) {
             frameTimer.start();
         }
-        scene.paint(new Surface(g, s, offX, offY, sprites), model, input, interaction, caretVisible, effects,
+        scene.paint(new Surface(g, s, offX, offY, sprites), model, input, noteInput,
+                interaction, caretVisible, effects,
                 focus.current(), player);
     }
 

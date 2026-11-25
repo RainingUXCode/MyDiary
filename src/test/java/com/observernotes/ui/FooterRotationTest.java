@@ -19,7 +19,7 @@ class FooterRotationTest {
 
     private static ScreenModel screen(String footer, String notice) {
         ScreenModel s = MockupSample.screen(PanelMode.TASKS);
-        return new ScreenModel(s.mode(), s.tasks(), s.observers(), s.history(), s.starsLit(), s.starsTotal(),
+        return new ScreenModel(s.mode(), s.tasks(), s.observers(), s.history(), s.littleNotes(),
                 s.achievementLabel(), s.achievementState(), s.achievementTier(), footer, s.newAchievement(),
                 s.views(), new ScreenModel.Feedback(notice, false, false, ""), 0);
     }

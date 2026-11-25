@@ -1,6 +1,7 @@
 package com.observernotes.ui.controller;
 
 import com.observernotes.application.AppCore;
+import com.observernotes.application.LittleNotesService;
 import com.observernotes.domain.BoardFullException;
 import com.observernotes.domain.TaskBoard;
 import com.observernotes.domain.TaskId;
@@ -14,6 +15,7 @@ import com.observernotes.ui.model.AchievementTier;
 import com.observernotes.ui.model.PanelMode;
 import com.observernotes.ui.model.TaskRowModel;
 import com.observernotes.ui.model.ScreenModel;
+import com.observernotes.ui.model.LittleNotesModel;
 import com.observernotes.ui.widget.TextInput;
 import com.observernotes.ui.widget.UiAction;
 import com.observernotes.sfx.SfxEffect;
@@ -34,8 +36,10 @@ public final class AppController {
     static final int NOTICE_MILLIS = 4000;
 
     private final AppCore app;
+    private final LittleNotesService notes;
     private final SaveFailureTracker failures;
     private final TextInput input;
+    private final TextInput noteInput;
     private final ZoneId zone;
     private final Runnable onChange;
     private final BiConsumer<Runnable, Integer> scheduler;
@@ -51,32 +55,55 @@ public final class AppController {
     private boolean stateSaveFailing;
     private boolean settingsSaveFailing;
     private boolean sfxSaveFailing;
+    private boolean notesSaveFailing;
     private boolean noticeWarning = true;
     private int historyOffset;
     private int taskPage;
+    private String editingNoteId = "";
 
     /**
      * @param scheduler agenda uma tarefa na thread de eventos depois de N ms (no app, um Timer do Swing)
      */
     public AppController(AppCore app, SaveFailureTracker failures, TextInput input, ZoneId zone, Runnable onChange,
                          BiConsumer<Runnable, Integer> scheduler) {
-        this(app, failures, input, zone, onChange, scheduler, EffectSink.NONE);
+        this(app, LittleNotesService.empty(), failures, input, zone, onChange, scheduler, EffectSink.NONE, SoundEffects.NONE);
     }
 
     /** @param effects recebe os pedidos de animação; falhas dele são ignoradas e nunca afetam o núcleo */
     public AppController(AppCore app, SaveFailureTracker failures, TextInput input, ZoneId zone, Runnable onChange,
                          BiConsumer<Runnable, Integer> scheduler, EffectSink effects) {
-        this(app, failures, input, zone, onChange, scheduler, effects, SoundEffects.NONE);
+        this(app, LittleNotesService.empty(), failures, input, zone, onChange, scheduler, effects, SoundEffects.NONE);
     }
 
     /** SFX é uma porta independente do player musical; em testes pode ser substituída por um gravador simples. */
     public AppController(AppCore app, SaveFailureTracker failures, TextInput input, ZoneId zone, Runnable onChange,
                          BiConsumer<Runnable, Integer> scheduler, EffectSink effects, SoundEffects soundEffects) {
+        this(app, LittleNotesService.empty(), failures, input, zone, onChange, scheduler, effects, soundEffects);
+    }
+
+    public AppController(AppCore app, LittleNotesService notes, SaveFailureTracker failures, TextInput input,
+                         ZoneId zone, Runnable onChange, BiConsumer<Runnable, Integer> scheduler,
+                         EffectSink effects, SoundEffects soundEffects) {
+        this(app, notes, failures, input, new TextInput(), zone, onChange, scheduler, effects, soundEffects);
+    }
+
+    public AppController(AppCore app, LittleNotesService notes, SaveFailureTracker failures, TextInput input,
+                         TextInput noteInput, ZoneId zone, Runnable onChange,
+                         BiConsumer<Runnable, Integer> scheduler) {
+        this(app, notes, failures, input, noteInput, zone, onChange, scheduler,
+                EffectSink.NONE, SoundEffects.NONE);
+    }
+
+    public AppController(AppCore app, LittleNotesService notes, SaveFailureTracker failures, TextInput input,
+                         TextInput noteInput, ZoneId zone, Runnable onChange,
+                         BiConsumer<Runnable, Integer> scheduler, EffectSink effects, SoundEffects soundEffects) {
         this.effects = effects == null ? EffectSink.NONE : effects;
         this.sfx = soundEffects == null ? SoundEffects.NONE : soundEffects;
         this.app = app;
+        this.notes = notes == null ? LittleNotesService.empty() : notes;
         this.failures = failures;
         this.input = input;
+        this.noteInput = noteInput == null ? new TextInput() : noteInput;
         this.zone = zone;
         this.onChange = onChange;
         this.scheduler = scheduler;
@@ -85,6 +112,7 @@ public final class AppController {
         app.bus().subscribe(footer);
         app.bus().subscribe(celebrations);
         stateSaveFailing = app.lastSaveError().isPresent();
+        notesSaveFailing = this.notes.lastSaveError().isPresent();
         taskPage = clampTaskPage(app.taskPage());
         if (taskPage != app.taskPage()) {
             app.setTaskPage(taskPage);
@@ -106,7 +134,7 @@ public final class AppController {
         ScreenModel.Feedback fb;
         if (!notice.isEmpty()) {
             fb = new ScreenModel.Feedback(notice, noticeWarning, noticeWarning, placeholder);
-        } else if (stateSaveFailing || settingsSaveFailing || sfxSaveFailing) {
+        } else if (stateSaveFailing || settingsSaveFailing || sfxSaveFailing || notesSaveFailing) {
             fb = new ScreenModel.Feedback(saveFailureText(), true, false, placeholder);
         } else {
             fb = new ScreenModel.Feedback("", false, false, placeholder);
@@ -114,12 +142,18 @@ public final class AppController {
         int total = app.history().entries().size();
         historyOffset = Math.max(0, Math.min(historyOffset, total - ScreenModel.HISTORY_ROWS));
         taskPage = clampTaskPage(taskPage);
-        return ScreenAssembler.assemble(app, mode, fb, footer.last(), zone, historyOffset, taskPage);
+        var noteItems = notes.notes().stream()
+                .map(n -> new LittleNotesModel.Item(n.id(), n.text())).toList();
+        return ScreenAssembler.assemble(app, new LittleNotesModel(noteItems, editingNoteId), mode, fb,
+                footer.last(), zone, historyOffset, taskPage);
     }
 
     private String saveFailureText() {
         if (sfxSaveFailing && !stateSaveFailing && !settingsSaveFailing) {
             return "Falha ao salvar os efeitos sonoros: a mudança ainda não está no disco";
+        }
+        if (notesSaveFailing && !stateSaveFailing && !settingsSaveFailing && !sfxSaveFailing) {
+            return "Falha ao salvar os bilhetes: a mudança ainda não está no disco";
         }
         return settingsSaveFailing && !stateSaveFailing
                 ? "Falha ao salvar as preferências: a mudança ainda não está no disco"
@@ -146,6 +180,13 @@ public final class AppController {
 
     /** Executa uma ação do usuário e avisa a interface para redesenhar. */
     public void handle(UiAction action) {
+        if (action.type() == UiAction.Type.NOTE_ADD || action.type() == UiAction.Type.NOTE_EDIT
+                || action.type() == UiAction.Type.NOTE_DELETE || action.type() == UiAction.Type.NOTE_SUBMIT
+                || action.type() == UiAction.Type.NOTE_CANCEL) {
+            handleNote(action);
+            onChange.run();
+            return;
+        }
         if (action.type() == UiAction.Type.SFX_TOGGLE || action.type() == UiAction.Type.SFX_VOLUME) {
             handleSfxSetting(action);
             onChange.run();
@@ -169,9 +210,9 @@ public final class AppController {
         celebrations.drain();                              // descarta qualquer sobra antiga
         SfxEffect[] sound = {null};
         switch (action.type()) {
-            case NAV_LIST -> { mode = PanelMode.TASKS; sound[0] = SfxEffect.CLICK; }
-            case NAV_ALERTS -> { mode = PanelMode.OBSERVERS; sound[0] = SfxEffect.CLICK; }
-            case NAV_RECORD -> { mode = PanelMode.HISTORY; sound[0] = SfxEffect.CLICK; }
+            case NAV_LIST -> { cancelNoteEditing(); mode = PanelMode.TASKS; sound[0] = SfxEffect.CLICK; }
+            case NAV_ALERTS -> { cancelNoteEditing(); mode = PanelMode.OBSERVERS; sound[0] = SfxEffect.CLICK; }
+            case NAV_RECORD -> { cancelNoteEditing(); mode = PanelMode.HISTORY; sound[0] = SfxEffect.CLICK; }
             case TASK_PAGE_PREVIOUS -> { if (changeTaskPage(-1)) sound[0] = SfxEffect.PAGE; }
             case TASK_PAGE_NEXT -> { if (changeTaskPage(1)) sound[0] = SfxEffect.PAGE; }
             case ADD, SUBMIT -> { if (submit()) sound[0] = SfxEffect.CREATE; }
@@ -215,6 +256,7 @@ public final class AppController {
             case SCROLL_HISTORY -> scrollHistory(action.key());
             case HINT -> setNotice(action.key(), false);
             case FOCUS_FIELD -> { }
+            case NOTE_ADD, NOTE_EDIT, NOTE_DELETE, NOTE_SUBMIT, NOTE_CANCEL -> { }
         }
         if (celebrate()) {
             sound[0] = SfxEffect.MEDAL;                    // medalha/conquista máxima vence conclusão/estrela
@@ -223,6 +265,76 @@ public final class AppController {
             sfx.play(sound[0]);
         }
         onChange.run();
+    }
+
+    private void handleNote(UiAction action) {
+        switch (action.type()) {
+            case NOTE_ADD -> startNoteEditing(LittleNotesModel.NEW_ID, "");
+            case NOTE_EDIT -> notes.notes().stream().filter(n -> n.id().equals(action.key())).findFirst()
+                    .ifPresent(n -> startNoteEditing(n.id(), n.text()));
+            case NOTE_DELETE -> {
+                try {
+                    if (action.key().equals(LittleNotesModel.NEW_ID)) {
+                        cancelNoteEditing();
+                    } else {
+                        if (notes.remove(action.key())) {
+                            notesSaveFailing = false;
+                            if (action.key().equals(editingNoteId)) {
+                                finishNoteEditing();
+                            }
+                        }
+                    }
+                } catch (PersistenceException e) {
+                    notesSaveFailing = true;
+                }
+            }
+            case NOTE_SUBMIT -> submitNoteEditing();
+            case NOTE_CANCEL -> cancelNoteEditing();
+            default -> { }
+        }
+    }
+
+    private void startNoteEditing(String id, String text) {
+        editingNoteId = id;
+        input.setFocused(false);
+        noteInput.setText(text);
+        noteInput.setFocused(true);
+    }
+
+    private void submitNoteEditing() {
+        if (editingNoteId.isEmpty()) {
+            return;
+        }
+        String text = noteInput.text().strip();
+        if (text.isEmpty()) {
+            cancelNoteEditing();
+            return;
+        }
+        try {
+            if (LittleNotesModel.NEW_ID.equals(editingNoteId)) {
+                notes.add(text);
+            } else {
+                notes.update(editingNoteId, text);
+            }
+            notesSaveFailing = false;
+            finishNoteEditing();
+        } catch (PersistenceException e) {
+            notesSaveFailing = true;
+        } catch (IllegalArgumentException | IllegalStateException ignored) {
+            // A UI já limita 3 bilhetes e 60 caracteres; uma ação inválida não finge falha de disco.
+        }
+    }
+
+    private void cancelNoteEditing() {
+        if (!editingNoteId.isEmpty()) {
+            finishNoteEditing();
+        }
+    }
+
+    private void finishNoteEditing() {
+        editingNoteId = "";
+        noteInput.clear();
+        noteInput.setFocused(false);
     }
 
     private void handleSfxSetting(UiAction action) {

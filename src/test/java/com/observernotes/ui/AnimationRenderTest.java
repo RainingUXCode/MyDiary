@@ -65,7 +65,7 @@ class AnimationRenderTest {
         for (int i = 0; i < n; i++) {
             h.add(new HistoryRowModel("21:" + (10 + i % 50), "Criada: tarefa " + i));
         }
-        return new ScreenModel(s.mode(), s.tasks(), s.observers(), h, s.starsLit(), s.starsTotal(),
+        return new ScreenModel(s.mode(), s.tasks(), s.observers(), h, s.littleNotes(),
                 s.achievementLabel(), s.achievementState(), s.achievementTier(), s.footerMessage(),
                 s.newAchievement(), s.views(), s.feedback(), offset);
     }

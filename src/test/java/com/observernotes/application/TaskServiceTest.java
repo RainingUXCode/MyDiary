@@ -255,14 +255,13 @@ class TaskServiceTest {
     @DisplayName("observador que falha em tudo não impede pontuação nem os outros observadores")
     void failingObserverDoesNotBreakState() {
         Fixture g = new Fixture();
-        // inscrito DEPOIS dos quatro, mas também testamos o caso "antes" em outro teste
+        // inscrito DEPOIS dos três, mas também testamos o caso "antes" em outro teste
         g.bus.subscribe(e -> { throw new IllegalStateException("animação quebrou"); });
         TaskView t = g.create("a");
         assertDoesNotThrow(() -> g.service.complete(t.id()));
         assertEquals(1, g.service.achievements().totalScored());
         assertEquals(1, g.achievements.progress().totalScored());
         assertEquals("1 de 1", g.counter.label());
-        assertEquals(1, g.constellation.litCount());
         assertFalse(g.failures.isEmpty());
     }
 

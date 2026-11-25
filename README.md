@@ -33,9 +33,15 @@ To-do list em Java (Swing), inspirada em jogos Flash dos anos 2000. Projeto pess
 
 ## Usar
 Crie tarefas no campo (Enter ou ADD), marque no checkbox, exclua no X. LIST / ALERTS / RECORD alternam tarefas, observadores e histórico. Tudo é salvo automaticamente.
+No **Resumo**, o mural **Little Notes** guarda até três bilhetinhos independentes das tarefas: `+` cria,
+clique no bilhete edita no próprio lugar, Enter confirma, Esc cancela e `×` remove. Os bilhetes não
+geram pontos, conquistas, histórico nem notificações.
 Roteiro completo de teste no Eclipse: `docs/PROGRESSO.md`, seção 7 (4C.1 e 4B).
 
 ## Dados do usuário
 Ficam fora do projeto (veja `docs/PROGRESSO.md`, seção 3). Para testar com outra pasta: `-Dobservernotes.data.dir=/caminho`.
+Tarefas e progresso ficam em `state.json`, preferências em `settings.json` e os bilhetes do Little Notes
+em `notes.json`. O mural usa arquivo próprio, versionado, com escrita atômica, backup e recuperação de
+arquivo corrompido; o formato de `state.json` não foi alterado.
 
 Estado do desenvolvimento, estrutura e instruções de continuação: **`docs/PROGRESSO.md`**.

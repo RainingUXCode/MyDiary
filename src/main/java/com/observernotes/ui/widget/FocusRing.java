@@ -91,6 +91,13 @@ public final class FocusRing {
         } else {
             o.add(UiAction.of(UiAction.Type.CLEAR));
         }
+        for (var note : m.littleNotes().items()) {
+            o.add(p(UiAction.Type.NOTE_EDIT, note.id()));
+            o.add(p(UiAction.Type.NOTE_DELETE, note.id()));
+        }
+        if (m.littleNotes().canAdd()) {
+            o.add(UiAction.of(UiAction.Type.NOTE_ADD));
+        }
         if (pm.available()) {
             o.add(UiAction.of(UiAction.Type.PLAYER_PREVIOUS));
             o.add(UiAction.of(UiAction.Type.PLAYER_TOGGLE));
@@ -177,6 +184,9 @@ public final class FocusRing {
             case PLAYER_REMOVE:
                 armed = null;
                 return space ? new Activation(a) : Activation.NONE;     // Enter nunca remove da playlist
+            case NOTE_DELETE:
+                armed = null;
+                return space ? new Activation(a) : Activation.NONE;
             case CLEAR:
                 return confirm(a, hint, "Pressione Espaço (ou Enter) de novo para limpar o histórico");
             default:

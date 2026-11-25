@@ -8,7 +8,6 @@ import com.observernotes.domain.event.DomainEvent;
 import com.observernotes.observer.Observer;
 import com.observernotes.observer.SynchronousEventBus;
 import com.observernotes.observer.impl.AchievementObserver;
-import com.observernotes.observer.impl.ConstellationObserver;
 import com.observernotes.observer.impl.CounterObserver;
 import com.observernotes.observer.impl.HistoryObserver;
 import java.time.Clock;
@@ -17,7 +16,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Monta o domínio completo com os quatro observadores já inscritos, para os testes. */
+/** Monta o domínio completo com os três observadores já inscritos, para os testes. */
 public final class Fixture {
 
     public final List<DomainEvent> events = new ArrayList<>();
@@ -32,7 +31,6 @@ public final class Fixture {
 
     public final HistoryObserver history = new HistoryObserver();
     public final CounterObserver counter = new CounterObserver();
-    public final ConstellationObserver constellation = new ConstellationObserver();
     public final AchievementObserver achievements = new AchievementObserver();
 
     public Fixture() {
@@ -40,7 +38,6 @@ public final class Fixture {
         bus.subscribe(recorder);
         bus.subscribe(history);
         bus.subscribe(counter);
-        bus.subscribe(constellation);
         bus.subscribe(achievements);
     }
 

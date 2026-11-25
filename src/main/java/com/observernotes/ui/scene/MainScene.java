@@ -12,6 +12,7 @@ import com.observernotes.ui.anim.EffectLayer;
 import com.observernotes.ui.anim.EffectLayer.Effect;
 import com.observernotes.ui.model.AchievementTier;
 import com.observernotes.ui.model.HistoryRowModel;
+import com.observernotes.ui.model.LittleNotesModel;
 import com.observernotes.ui.model.ObserverCardModel;
 import com.observernotes.ui.model.PanelMode;
 import com.observernotes.ui.model.PlayerModel;
@@ -28,7 +29,9 @@ import java.awt.AlphaComposite;
 import java.awt.GradientPaint;
 import java.awt.Graphics2D;
 import java.awt.geom.Arc2D;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
@@ -187,6 +190,10 @@ public final class MainScene {
         if (pm.available() && pm.panelOpen() && Layout.MAIN_PANEL.contains(logical)) {
             return playlistActionAt(logical, pm);                    // a playlist cobre o painel central
         }
+        UiAction noteAction = noteActionAt(logical, m);
+        if (noteAction != null) {
+            return noteAction;
+        }
         if (m.mode() == PanelMode.TASKS) {
             for (int i = 0; i < m.tasks().size(); i++) {
                 Rectangle2D row = Layout.row(i);
@@ -206,6 +213,68 @@ public final class MainScene {
             }
         }
         return null;
+    }
+
+    /** Ação do mural sob o ponto, independente do painel central selecionado. */
+    public static UiAction noteActionAt(Point2D logical, ScreenModel m) {
+        LittleNotesModel notes = m.littleNotes();
+        int visible = notes.items().size() + (notes.adding() ? 1 : 0);
+        for (int i = visible - 1; i >= 0; i--) {
+            String id = i < notes.items().size() ? notes.items().get(i).id() : LittleNotesModel.NEW_ID;
+            Rectangle2D card = noteRect(i);
+            if (noteCloseRect(card).contains(logical)) {
+                return new UiAction(UiAction.Type.NOTE_DELETE, id);
+            }
+            if (card.contains(logical)) {
+                return new UiAction(UiAction.Type.NOTE_EDIT, id);
+            }
+        }
+        if (notes.canAdd() && noteAddRect(notes).contains(logical)) {
+            return UiAction.of(UiAction.Type.NOTE_ADD);
+        }
+        return null;
+    }
+
+    /** Texto completo do bilhete se a versão desenhada usa reticências. */
+    public static String truncatedNoteTextAt(Graphics2D g, Fonts fonts, Point2D logical, ScreenModel m) {
+        for (int i = 0; i < m.littleNotes().items().size(); i++) {
+            if (noteRect(i).contains(logical)) {
+                String text = m.littleNotes().items().get(i).text();
+                double max = noteRect(i).getWidth() - 39;
+                return TextPainter.fitEllipsis(g, text, fonts.body(18), max, 1).truncated() ? text : null;
+            }
+        }
+        return null;
+    }
+
+    public static Rectangle2D noteRect(int index) {
+        Rectangle2D a = Layout.NOTES_AREA;
+        double width = a.getWidth() - 23;
+        return new Rectangle2D.Double(a.getCenterX() - width / 2, a.getY() + 6 + index * 38,
+                width, 34);
+    }
+
+    public static Rectangle2D emptyNoteRect() {
+        Rectangle2D a = Layout.NOTES_AREA;
+        double width = a.getWidth() - 23;
+        return new Rectangle2D.Double(a.getCenterX() - width / 2, a.getY() + 8, width, 48);
+    }
+
+    public static Rectangle2D noteAddRect(LittleNotesModel notes) {
+        Rectangle2D a = Layout.NOTES_AREA;
+        double cy = notes.items().isEmpty() ? a.getY() + 88
+                : Math.min(a.getMaxY() - 16, noteRect(notes.items().size() - 1).getMaxY() + 24);
+        return new Rectangle2D.Double(a.getCenterX() - 14, cy - 14, 28, 28);
+    }
+
+    private static Rectangle2D noteCloseRect(Rectangle2D card) {
+        return new Rectangle2D.Double(card.getMaxX() - 20, card.getY() + 3, 17, 17);
+    }
+
+    /** Círculo desenhado um pouco menor que o hotspot, preservando uma área clicável confortável. */
+    private static Rectangle2D noteCloseVisualRect(Rectangle2D card) {
+        Rectangle2D hit = noteCloseRect(card);
+        return new Rectangle2D.Double(hit.getCenterX() - 7.5, hit.getCenterY() - 7.5, 15, 15);
     }
 
     /** True se o ponto está sobre algo clicável (para o cursor de mão). */
@@ -398,6 +467,13 @@ public final class MainScene {
 
     public void paint(Surface s, ScreenModel m, TextInput input, InteractionState ui, boolean caretVisible,
                       EffectLayer fx, UiAction focus, PlayerModel player) {
+        paint(s, m, input, input, ui, caretVisible, fx, focus, player);
+    }
+
+    /** Renderização com entradas independentes: tarefas no topo e edição contextual dos bilhetes. */
+    public void paint(Surface s, ScreenModel m, TextInput taskInput, TextInput noteInput,
+                      InteractionState ui, boolean caretVisible, EffectLayer fx, UiAction focus,
+                      PlayerModel player) {
         this.player = player == null ? PlayerModel.NONE : player;
         this.ui = ui;
         this.fx = fx;
@@ -411,10 +487,10 @@ public final class MainScene {
                     Palette.OUTLINE_ALERTS, ui);
             navButton(s, g, ButtonId.NAV_RECORD, Layout.NAV_RECORD, Asset.BUTTON_RECORD, Asset.TINY_BOOK, "RECORD",
                     Palette.OUTLINE_RECORD, ui);
-            textField(s, g, input, caretVisible, m.feedback());
+            textField(s, g, taskInput, caretVisible, m.feedback());
             addButton(s, g, ui);
             mainPanel(s, g, m, ui);
-            summaryPanel(s, g, m);
+            summaryPanel(s, g, m, noteInput, caretVisible);
             footer(s, g, m);
             overlays(s, g, m);
             musicEffects(g);
@@ -864,8 +940,9 @@ public final class MainScene {
         Rectangle2D first = Layout.row(0);
         Rectangle2D last = Layout.row(Layout.rowCount() - 1);
         double top = first.getY();
-        double gap = 12;
-        double h = (last.getMaxY() - top - gap * 3) / 4.0;
+        double available = last.getMaxY() - top;
+        double h = (available - 12 * 3) / 4.0; // preserva exatamente a altura anterior
+        double gap = (available - h * 3) / 2.0;
         return new Rectangle2D.Double(first.getX(), top + index * (h + gap), first.getWidth(), h);
     }
 
@@ -921,7 +998,7 @@ public final class MainScene {
 
     // ---------------------------------------------------------------- resumo
 
-    private void summaryPanel(Surface s, Graphics2D g, ScreenModel m) {
+    private void summaryPanel(Surface s, Graphics2D g, ScreenModel m, TextInput input, boolean caretVisible) {
         ProceduralArt.panel(g, Layout.SUMMARY_PANEL, 30, true);
         ribbon(s, g, Asset.TITLE_PURPLE, Layout.SUMMARY_RIBBON, "Resumo", Palette.RIBBON_PURPLE_TEXT);
         Rectangle2D hr = fitInside(s, Asset.SUMMARY_HEART, Layout.SUMMARY_HEART);
@@ -944,16 +1021,167 @@ public final class MainScene {
             s.sprite(Asset.TINY_STAR, new Rectangle2D.Double(sx - 20, bar.getCenterY() - 20, 40, 38));
         }
 
-        Rectangle2D ct = Layout.CONSTELLATION_TILE;
-        s.spriteAlpha(Asset.ICON_CONSTELLATION, ct, v.constellationOn() ? 1f : 0.35f);
-        label(g, Layout.CONSTELLATION_LABEL, "Constelação",
-                v.constellationOn() ? m.starsLit() + " de " + m.starsTotal() + " estrelas" : "desligada");
+        littleNotes(s, g, m.littleNotes(), input, caretVisible);
         Rectangle2D at = Layout.ACHIEVEMENT_TILE;
         Asset medal = m.achievementTier().asset();
         double mw = m.achievementTier() == AchievementTier.MAX ? at.getWidth() * 1.2 : at.getWidth() * 1.6;
         mw *= quantize(medalBounce());
         s.spriteByWidth(medal, at.getCenterX(), at.getCenterY(), mw, v.achievementsOn() ? 1f : 0.35f);
         label(g, Layout.ACHIEVEMENT_LABEL, m.achievementLabel(), v.achievementsOn() ? m.achievementState() : "desligadas");
+    }
+
+    private void littleNotes(Surface s, Graphics2D g, LittleNotesModel notes, TextInput input, boolean caretVisible) {
+        if (notes.items().isEmpty() && !notes.adding()) {
+            Rectangle2D empty = emptyNoteRect();
+            g.setColor(new Color(0xFFF9F8));
+            g.fill(new RoundRectangle2D.Double(empty.getX(), empty.getY(), empty.getWidth(), empty.getHeight(), 8, 8));
+            g.setColor(new Color(0xE471A4));
+            g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
+                    10, new float[] {4, 4}, 0));
+            g.draw(new RoundRectangle2D.Double(empty.getX(), empty.getY(), empty.getWidth(), empty.getHeight(), 8, 8));
+            TextPainter.centered(g, "Deixe um bilhete", fonts.secondary(18), empty,
+                    Palette.INK_MUTED, null, 0);
+        }
+
+        for (int i = 0; i < notes.items().size(); i++) {
+            drawNote(g, noteRect(i), i, notes.items().get(i).id(), notes.items().get(i).text(),
+                    notes.editingId().equals(notes.items().get(i).id()), input, caretVisible);
+        }
+        if (notes.adding()) {
+            drawNote(g, noteRect(notes.items().size()), notes.items().size(), LittleNotesModel.NEW_ID, "",
+                    true, input, caretVisible);
+        }
+
+        if (notes.canAdd()) {
+            Rectangle2D add = noteAddRect(notes);
+            g.setColor(new Color(0xF16A9D));
+            g.fill(new Ellipse2D.Double(add.getX(), add.getY(), add.getWidth(), add.getHeight()));
+            g.setColor(new Color(0xA92462));
+            g.setStroke(new BasicStroke(1.6f));
+            g.draw(new Ellipse2D.Double(add.getX(), add.getY(), add.getWidth(), add.getHeight()));
+            g.setColor(Color.WHITE);
+            g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.draw(new java.awt.geom.Line2D.Double(add.getCenterX() - 6, add.getCenterY(),
+                    add.getCenterX() + 6, add.getCenterY()));
+            g.draw(new java.awt.geom.Line2D.Double(add.getCenterX(), add.getCenterY() - 6,
+                    add.getCenterX(), add.getCenterY() + 6));
+            if (isFocused(UiAction.of(UiAction.Type.NOTE_ADD))) {
+                ProceduralArt.focusRing(g, add, add.getHeight());
+            }
+        }
+
+        Rectangle2D label = Layout.NOTES_LABEL;
+        Rectangle2D achievementLabel = Layout.ACHIEVEMENT_LABEL;
+        double titleCenterY = achievementLabel.getY() + achievementLabel.getHeight() * 0.25;
+        var titleFont = fonts.body(25);
+        String titleText = "Little Notes";
+        double titleWidth = TextPainter.width(g, titleText, titleFont);
+        double tx = label.getCenterX() - titleWidth / 2;
+        TextPainter.draw(g, titleText, titleFont, tx,
+                TextPainter.centerBaseline(g, titleFont, titleCenterY), Palette.INK, null, 0);
+        String count = notes.items().isEmpty() ? "nenhum ainda"
+                : notes.items().size() + (notes.items().size() == 1 ? " bilhetinho" : " bilhetinhos");
+        Rectangle2D sub = new Rectangle2D.Double(label.getX(), achievementLabel.getCenterY(),
+                label.getWidth(), achievementLabel.getHeight() * 0.5);
+        TextPainter.centered(g, count, fonts.secondary(20), sub, Palette.INK_MUTED, null, 0);
+    }
+
+    private void drawNote(Graphics2D g, Rectangle2D card, int index, String id, String text,
+                          boolean editing, TextInput input, boolean caretVisible) {
+        Color[] fills = {new Color(0xFFC7DC), new Color(0xFFF0A8), new Color(0xDCCBFF)};
+        Color[] borders = {new Color(0xE96196), new Color(0xD8A52B), new Color(0x9273DC)};
+        // Inclinações medidas no mockup: rosa levemente horária, amarela quase reta para o
+        // outro lado e lilás com uma variação mínima. O conjunto parece colado à mão sem tombar.
+        double[] angles = {2.2, -1.1, 0.8};
+        AffineTransform old = g.getTransform();
+        g.rotate(Math.toRadians(angles[index % angles.length]), card.getCenterX(), card.getCenterY());
+        // Projeção curta como no mockup: uma borda externa muito leve e um núcleo definido,
+        // ambos deslocados para baixo/direita e sob a mesma rotação do papel.
+        g.setColor(new Color(90, 46, 73, 8));
+        g.fill(new RoundRectangle2D.Double(card.getX() + 2, card.getY() + 4,
+                card.getWidth() + 2, card.getHeight() + 2, 9, 9));
+        g.setColor(new Color(90, 46, 73, 22));
+        g.fill(new RoundRectangle2D.Double(card.getX() + 1.5, card.getY() + 2.5,
+                card.getWidth() + 1, card.getHeight() + 1, 8, 8));
+        g.setColor(fills[index % fills.length]);
+        g.fill(new RoundRectangle2D.Double(card.getX(), card.getY(), card.getWidth(), card.getHeight(), 7, 7));
+        g.setColor(borders[index % borders.length]);
+        g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(new RoundRectangle2D.Double(card.getX(), card.getY(), card.getWidth(), card.getHeight(), 7, 7));
+
+        double tapeW = 28, tapeH = 11;
+        Rectangle2D tape = new Rectangle2D.Double(card.getCenterX() - tapeW / 2, card.getY() - 5, tapeW, tapeH);
+        Path2D tapeShape = new Path2D.Double();
+        tapeShape.moveTo(tape.getX() + 2, tape.getY());
+        tapeShape.lineTo(tape.getMaxX() - 2, tape.getY());
+        tapeShape.lineTo(tape.getMaxX(), tape.getY() + 2);
+        tapeShape.lineTo(tape.getMaxX() - 1, tape.getMaxY());
+        tapeShape.lineTo(tape.getX() + 1, tape.getMaxY());
+        tapeShape.lineTo(tape.getX(), tape.getY() + 2);
+        tapeShape.closePath();
+        g.setColor(new Color(255, 249, 232, 235));
+        g.fill(tapeShape);
+        g.setColor(new Color(232, 188, 182, 165));
+        g.setStroke(new BasicStroke(0.9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        for (double x = tape.getX() + 3; x < tape.getMaxX() - 3; x += 7) {
+            g.draw(new java.awt.geom.Line2D.Double(x, tape.getY() + 1, x + 5, tape.getMaxY() - 1));
+        }
+
+        String shown = editing ? input.text() : text;
+        var font = fonts.body(17);
+        boolean controlsVisible = editing || hoveredNote(id) || isFocused(new UiAction(UiAction.Type.NOTE_DELETE, id));
+        double textX = card.getX() + 9;
+        double max = card.getWidth() - (controlsVisible ? 39 : 18);
+        String display = editing ? shown : TextPainter.ellipsize(g, shown, font, max);
+        double drawX;
+        if (editing) {
+            double caretWidth = TextPainter.width(g, shown.substring(0, input.caret()), font);
+            drawX = textX - Math.max(0, caretWidth - max + 4);
+        } else {
+            drawX = textX + (max - TextPainter.width(g, display, font)) / 2;
+        }
+        java.awt.Shape oldClip = g.getClip();
+        g.clip(new Rectangle2D.Double(textX, card.getY() + 3, max, card.getHeight() - 6));
+        TextPainter.draw(g, display, font, drawX,
+                TextPainter.visualCenterBaseline(g, display, font, card.getCenterY() + 1), Palette.INK, null, 0);
+        if (editing && caretVisible) {
+            String before = shown.substring(0, input.caret());
+            double cx = drawX + TextPainter.width(g, before, font);
+            g.setColor(Palette.INK);
+            g.setStroke(new BasicStroke(1.7f));
+            g.draw(new java.awt.geom.Line2D.Double(cx + 1, card.getCenterY() - 9, cx + 1, card.getCenterY() + 9));
+        }
+        g.setClip(oldClip);
+
+        if (controlsVisible) {
+            Rectangle2D close = noteCloseVisualRect(card);
+            g.setColor(new Color(255, 255, 255, 220));
+            g.fill(new Ellipse2D.Double(close.getX(), close.getY(), close.getWidth(), close.getHeight()));
+            g.setColor(Palette.BORDER);
+            g.setStroke(new BasicStroke(1.3f));
+            g.draw(new Ellipse2D.Double(close.getX(), close.getY(), close.getWidth(), close.getHeight()));
+            g.draw(new java.awt.geom.Line2D.Double(close.getX() + 4.5, close.getY() + 4.5,
+                    close.getMaxX() - 4.5, close.getMaxY() - 4.5));
+            g.draw(new java.awt.geom.Line2D.Double(close.getMaxX() - 4.5, close.getY() + 4.5,
+                    close.getX() + 4.5, close.getMaxY() - 4.5));
+        }
+        g.setTransform(old);
+
+        UiAction editAction = new UiAction(UiAction.Type.NOTE_EDIT, id);
+        UiAction deleteAction = new UiAction(UiAction.Type.NOTE_DELETE, id);
+        if (isFocused(editAction)) {
+            ProceduralArt.focusRing(g, card, 8);
+        } else if (isFocused(deleteAction)) {
+            ProceduralArt.focusRing(g, noteCloseVisualRect(card), 8);
+        }
+    }
+
+    private boolean hoveredNote(String id) {
+        if (ui == null) {
+            return false;
+        }
+        return ui.isHoverItem(new UiAction(UiAction.Type.NOTE_EDIT, id))
+                || ui.isHoverItem(new UiAction(UiAction.Type.NOTE_DELETE, id));
     }
 
     private void label(Graphics2D g, Rectangle2D box, String title, String sub) {

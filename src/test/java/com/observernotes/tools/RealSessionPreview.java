@@ -53,7 +53,6 @@ public final class RealSessionPreview {
         render(canvas, new File(out, "real-history.png"));
         c.handle(UiAction.of(UiAction.Type.NAV_ALERTS));
         c.handle(new UiAction(UiAction.Type.TOGGLE_OBSERVER, "COUNTER"));
-        c.handle(new UiAction(UiAction.Type.TOGGLE_OBSERVER, "CONSTELLATION"));
         render(canvas, new File(out, "real-observers-desligados.png"));
         c.handle(UiAction.of(UiAction.Type.NAV_LIST));
         input.paste("Sétima tarefa");

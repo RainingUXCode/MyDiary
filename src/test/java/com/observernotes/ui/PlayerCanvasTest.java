@@ -271,7 +271,7 @@ class PlayerCanvasTest {
     @Test
     void footerHasOneInfoAreaAndNotificationAloneWhenNothingPlays() {
         ScreenModel s = MockupSample.screen(PanelMode.TASKS);
-        ScreenModel noisy = new ScreenModel(s.mode(), s.tasks(), s.observers(), s.history(), s.starsLit(), s.starsTotal(),
+        ScreenModel noisy = new ScreenModel(s.mode(), s.tasks(), s.observers(), s.history(), s.littleNotes(),
                 s.achievementLabel(), s.achievementState(), s.achievementTier(), s.footerMessage(), s.newAchievement(),
                 s.views(), new ScreenModel.Feedback("Limite de 6 tarefas", true, false, ""), 0);
         start(noisy, PlayerModel.NONE);

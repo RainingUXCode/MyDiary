@@ -28,8 +28,8 @@ public final class PreviewRenderer {
         canvas.setModel(sample ? MockupSample.screen(mode) : ScreenModel.empty().withMode(mode));
         if (sample && args.length > 6) {
             ScreenModel b = canvas.model();
-            canvas.setModel(new ScreenModel(b.mode(), b.tasks(), b.observers(), b.history(), b.starsLit(),
-                    b.starsTotal(), "Conquistas", args[6].toLowerCase(),
+            canvas.setModel(new ScreenModel(b.mode(), b.tasks(), b.observers(), b.history(), b.littleNotes(),
+                    "Conquistas", args[6].toLowerCase(),
                     com.observernotes.ui.model.AchievementTier.valueOf(args[6].toUpperCase()), b.footerMessage(),
                     b.newAchievement()));
         }
