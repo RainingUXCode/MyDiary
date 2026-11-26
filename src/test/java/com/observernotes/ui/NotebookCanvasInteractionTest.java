@@ -5,7 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.observernotes.ui.assets.AssetCatalog;
+import com.observernotes.ui.model.LittleNotesModel;
+import com.observernotes.ui.model.ScreenModel;
+import com.observernotes.ui.scene.MainScene;
 import com.observernotes.ui.widget.ButtonId;
+import java.awt.Cursor;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
@@ -100,6 +104,28 @@ class NotebookCanvasInteractionTest {
         mouse(c, MouseEvent.MOUSE_PRESSED, a[0], a[1]);
         mouse(c, MouseEvent.MOUSE_RELEASED, a[0], a[1]);
         assertEquals(List.of(com.observernotes.ui.widget.UiAction.of(ButtonId.ADD)), clicks);
+    }
+
+    @Test
+    void noteAddUsesClickCursorAndNoteBodyUsesTextCursor() {
+        NotebookCanvas c = canvas(1397, 742);
+        int[] add = screenOf(c, MainScene.noteAddRect(c.model().littleNotes()));
+
+        mouse(c, MouseEvent.MOUSE_MOVED, add[0], add[1]);
+
+        assertEquals(Cursor.HAND_CURSOR, c.getCursor().getType());
+
+        ScreenModel base = c.model();
+        LittleNotesModel notes = new LittleNotesModel(
+                List.of(new LittleNotesModel.Item("n1", "Beber água")), "");
+        c.setModel(new ScreenModel(base.mode(), base.tasks(), base.observers(), base.history(), notes,
+                base.achievementLabel(), base.achievementState(), base.achievementTier(), base.footerMessage(),
+                base.newAchievement(), base.views(), base.feedback(), base.historyOffset(), base.taskPages()));
+        int[] note = screenOf(c, MainScene.noteRect(0));
+
+        mouse(c, MouseEvent.MOUSE_MOVED, note[0], note[1]);
+
+        assertEquals(Cursor.TEXT_CURSOR, c.getCursor().getType());
     }
 
     @Test

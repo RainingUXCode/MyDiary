@@ -176,6 +176,27 @@ final class ProceduralArt {
         sparkle(g, cx + 12, cy - 12, 7, new Color(0xFFE48A));
     }
 
+    /** Coração compacto usado no rótulo do mural Little Notes. */
+    static void heart(Graphics2D g, double cx, double cy, double radius, Color color) {
+        Path2D heart = new Path2D.Double();
+        for (int i = 0; i <= 100; i++) {
+            double t = i / 100.0 * Math.PI * 2;
+            double x = 16 * Math.pow(Math.sin(t), 3);
+            double y = 13 * Math.cos(t) - 5 * Math.cos(2 * t)
+                    - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+            double px = cx + x * radius / 16.0;
+            double py = cy - y * radius / 16.0;
+            if (i == 0) {
+                heart.moveTo(px, py);
+            } else {
+                heart.lineTo(px, py);
+            }
+        }
+        heart.closePath();
+        g.setColor(color);
+        g.fill(heart);
+    }
+
     /** Raios em leque (comemoração de medalha). */
     static void rays(Graphics2D g, double cx, double cy, double inner, double outer, int count, double rotation,
                      Color color) {

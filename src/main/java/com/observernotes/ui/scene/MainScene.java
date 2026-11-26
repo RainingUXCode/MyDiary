@@ -35,6 +35,9 @@ import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
+import java.awt.image.BufferedImage;
+import java.awt.image.ConvolveOp;
+import java.awt.image.Kernel;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -935,14 +938,14 @@ public final class MainScene {
         }
     }
 
-    /** Cartões de observador usam o espaço de uma linha e meia para o ícone respirar. */
+    /** Três cartões iguais, com 34 px de respiro, centralizados no espaço útil do painel. */
     public static Rectangle2D cardRect(int index) {
         Rectangle2D first = Layout.row(0);
-        Rectangle2D last = Layout.row(Layout.rowCount() - 1);
-        double top = first.getY();
-        double available = last.getMaxY() - top;
-        double h = (available - 12 * 3) / 4.0; // preserva exatamente a altura anterior
-        double gap = (available - h * 3) / 2.0;
+        double h = 74;
+        double gap = 34;
+        double contentTop = 248;
+        double contentHeight = 334;
+        double top = contentTop + (contentHeight - (3 * h + 2 * gap)) / 2.0;
         return new Rectangle2D.Double(first.getX(), top + index * (h + gap), first.getWidth(), h);
     }
 
@@ -1072,17 +1075,23 @@ public final class MainScene {
 
         Rectangle2D label = Layout.NOTES_LABEL;
         Rectangle2D achievementLabel = Layout.ACHIEVEMENT_LABEL;
+        // Mantém os dois blocos do rodapé do Resumo na mesma linha visual.
         double titleCenterY = achievementLabel.getY() + achievementLabel.getHeight() * 0.25;
+        double subtitleCenterY = achievementLabel.getY() + achievementLabel.getHeight() * 0.75;
         var titleFont = fonts.body(25);
         String titleText = "Little Notes";
         double titleWidth = TextPainter.width(g, titleText, titleFont);
-        double tx = label.getCenterX() - titleWidth / 2;
+        double heartRadius = 7;
+        double titleGap = 2;
+        double groupWidth = titleWidth + titleGap + 2 * heartRadius;
+        double tx = label.getCenterX() - groupWidth / 2;
         TextPainter.draw(g, titleText, titleFont, tx,
                 TextPainter.centerBaseline(g, titleFont, titleCenterY), Palette.INK, null, 0);
+        ProceduralArt.heart(g, tx + titleWidth + titleGap + heartRadius, titleCenterY,
+                heartRadius, new Color(255, 120, 170));
         String count = notes.items().isEmpty() ? "nenhum ainda"
                 : notes.items().size() + (notes.items().size() == 1 ? " bilhetinho" : " bilhetinhos");
-        Rectangle2D sub = new Rectangle2D.Double(label.getX(), achievementLabel.getCenterY(),
-                label.getWidth(), achievementLabel.getHeight() * 0.5);
+        Rectangle2D sub = new Rectangle2D.Double(label.getX(), subtitleCenterY - 11, label.getWidth(), 22);
         TextPainter.centered(g, count, fonts.secondary(20), sub, Palette.INK_MUTED, null, 0);
     }
 
@@ -1095,37 +1104,27 @@ public final class MainScene {
         double[] angles = {2.2, -1.1, 0.8};
         AffineTransform old = g.getTransform();
         g.rotate(Math.toRadians(angles[index % angles.length]), card.getCenterX(), card.getCenterY());
-        // Projeção curta como no mockup: uma borda externa muito leve e um núcleo definido,
-        // ambos deslocados para baixo/direita e sob a mesma rotação do papel.
-        g.setColor(new Color(90, 46, 73, 8));
-        g.fill(new RoundRectangle2D.Double(card.getX() + 2, card.getY() + 4,
-                card.getWidth() + 2, card.getHeight() + 2, 9, 9));
-        g.setColor(new Color(90, 46, 73, 22));
-        g.fill(new RoundRectangle2D.Double(card.getX() + 1.5, card.getY() + 2.5,
-                card.getWidth() + 1, card.getHeight() + 1, 8, 8));
+        drawNoteShadow(g, card);
         g.setColor(fills[index % fills.length]);
         g.fill(new RoundRectangle2D.Double(card.getX(), card.getY(), card.getWidth(), card.getHeight(), 7, 7));
         g.setColor(borders[index % borders.length]);
         g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(new RoundRectangle2D.Double(card.getX(), card.getY(), card.getWidth(), card.getHeight(), 7, 7));
 
-        double tapeW = 28, tapeH = 11;
-        Rectangle2D tape = new Rectangle2D.Double(card.getCenterX() - tapeW / 2, card.getY() - 5, tapeW, tapeH);
-        Path2D tapeShape = new Path2D.Double();
-        tapeShape.moveTo(tape.getX() + 2, tape.getY());
-        tapeShape.lineTo(tape.getMaxX() - 2, tape.getY());
-        tapeShape.lineTo(tape.getMaxX(), tape.getY() + 2);
-        tapeShape.lineTo(tape.getMaxX() - 1, tape.getMaxY());
-        tapeShape.lineTo(tape.getX() + 1, tape.getMaxY());
-        tapeShape.lineTo(tape.getX(), tape.getY() + 2);
-        tapeShape.closePath();
-        g.setColor(new Color(255, 249, 232, 235));
-        g.fill(tapeShape);
-        g.setColor(new Color(232, 188, 182, 165));
-        g.setStroke(new BasicStroke(0.9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        for (double x = tape.getX() + 3; x < tape.getMaxX() - 3; x += 7) {
-            g.draw(new java.awt.geom.Line2D.Double(x, tape.getY() + 1, x + 5, tape.getMaxY() - 1));
+        double tapeW = 26, tapeH = 9;
+        Rectangle2D tape = new Rectangle2D.Double(card.getCenterX() - tapeW / 2,
+                card.getY() - tapeH / 2, tapeW, tapeH);
+        g.setColor(new Color(255, 255, 255, 170));
+        g.fill(tape);
+        java.awt.Shape tapeClip = g.getClip();
+        g.clip(tape);
+        Color border = borders[index % borders.length];
+        g.setColor(new Color(border.getRed(), border.getGreen(), border.getBlue(), 110));
+        g.setStroke(new BasicStroke(1f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        for (double x = tape.getX() - tapeH; x < tape.getMaxX(); x += 6) {
+            g.draw(new java.awt.geom.Line2D.Double(x, tape.getY(), x + tapeH, tape.getMaxY()));
         }
+        g.setClip(tapeClip);
 
         String shown = editing ? input.text() : text;
         var font = fonts.body(17);
@@ -1174,6 +1173,28 @@ public final class MainScene {
         } else if (isFocused(deleteAction)) {
             ProceduralArt.focusRing(g, noteCloseVisualRect(card), 8);
         }
+    }
+
+    /** Sombra do papel: 2 px de desfoque, 2 px para baixo, no vinho translúcido do mockup. */
+    private static void drawNoteShadow(Graphics2D g, Rectangle2D card) {
+        int pad = 6;
+        int w = (int) Math.ceil(card.getWidth()) + pad * 2;
+        int h = (int) Math.ceil(card.getHeight()) + pad * 2;
+        BufferedImage source = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D sg = source.createGraphics();
+        sg.setColor(new Color(120, 50, 90, 60));
+        sg.fill(new RoundRectangle2D.Double(pad, pad + 2, card.getWidth(), card.getHeight(), 7, 7));
+        sg.dispose();
+        float[] one = {1f, 4f, 6f, 4f, 1f};
+        float[] kernel = new float[25];
+        for (int y = 0; y < 5; y++) {
+            for (int x = 0; x < 5; x++) {
+                kernel[y * 5 + x] = one[y] * one[x] / 256f;
+            }
+        }
+        BufferedImage blurred = new ConvolveOp(new Kernel(5, 5, kernel), ConvolveOp.EDGE_NO_OP, null)
+                .filter(source, null);
+        g.drawImage(blurred, (int) Math.round(card.getX()) - pad, (int) Math.round(card.getY()) - pad, null);
     }
 
     private boolean hoveredNote(String id) {

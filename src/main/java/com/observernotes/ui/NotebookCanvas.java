@@ -178,7 +178,7 @@ public final class NotebookCanvas extends JPanel {
                 ButtonId id = MainScene.hitTest(p, model, player);
                 UiAction a = MainScene.actionAt(p, model, player);
                 boolean noteText = a != null
-                        && (a.type() == UiAction.Type.NOTE_EDIT || a.type() == UiAction.Type.NOTE_ADD);
+                        && a.type() == UiAction.Type.NOTE_EDIT;
                 setCursor(Cursor.getPredefinedCursor(noteText || MainScene.overTextField(p) ? Cursor.TEXT_CURSOR
                         : MainScene.overClickable(p, model, player) ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
                 setToolTipText(truncatedTitleTooltip(p));
